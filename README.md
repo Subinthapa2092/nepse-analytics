@@ -1,70 +1,148 @@
 # nepse-analytics
 
-Open-source NEPSE data pipeline and analytics platform — reliable price/floorsheet
-scraping, broker flow analysis, and technical screening for the Nepal Stock Exchange.
+Open-source NEPSE data pipeline and analytics platform for reliable price and floorsheet scraping, broker flow analysis, and technical screening for the Nepal Stock Exchange.
+
 Built in public, solo, from scratch.
 
 ## Status
 
-🚧 Early build — daily price scraper in progress.
+🚧 Early build. Daily price scraper in progress.
 
 ## Why
 
-Existing NEPSE tools (Chukul, Nepalytix, Merolagani) are either paywalled,
-closed-source, or unreliable. This is an attempt to build something
-transparent and free, starting with a reliable data pipeline — with the
-methodology documented as it's built, not hidden behind a black box.
+Existing NEPSE tools such as Chukul, Nepalytix, and Merolagani are either paywalled, closed source, or unreliable.
+
+This project aims to build a transparent and free alternative, starting with a reliable data pipeline. Every step of the methodology will be documented openly instead of hidden inside a black box.
 
 ## Roadmap
 
 - [ ] Reliable single-symbol price scraper
-- [ ] Scheduled daily ingestion (GitHub Actions)
-- [ ] All-symbol price history in Postgres
+- [ ] Scheduled daily ingestion using GitHub Actions
+- [ ] All-symbol price history stored in PostgreSQL
 - [ ] Floorsheet ingestion
 - [ ] FastAPI backend
 - [ ] React frontend with live candlestick charts
-- [ ] Broker accumulation/distribution detection (clustering)
-- [ ] Technical pattern screener (VCP / CANSLIM style)
+- [ ] Broker accumulation and distribution detection using clustering
+- [ ] Technical pattern screener (VCP and CANSLIM style)
 
-## Project structure
+## Project Structure
 
-```
+```text
 nepse-analytics/
-├── .github/workflows/   # scheduled scraping jobs (GitHub Actions cron)
-├── scraper/              # fetching + parsing logic
-├── database/              # DB models and connection handling
-├── api/                    # FastAPI app (added in a later phase)
-├── frontend/                # React app (added in a later phase, or separate repo)
-├── notebooks/                # exploratory analysis, clustering work
+├── .github/
+│   └── workflows/          # Scheduled scraping jobs (GitHub Actions)
+├── scraper/                # Fetching and parsing logic
+├── database/               # Database models and connection handling
+├── api/                    # FastAPI application
+├── frontend/               # React application
+├── notebooks/              # Exploratory analysis and clustering
 ├── tests/
-└── docs/                      # notes on data sources, what breaks, why
+├── docs/                   # Documentation and research notes
+├── .env.example
+├── requirements.txt
+├── README.md
+└── LICENSE
 ```
+
+## Features
+
+- Reliable NEPSE daily price scraping
+- Historical price data collection
+- Floorsheet data ingestion
+- Broker-wise accumulation and distribution analysis
+- Technical screening for stocks
+- REST API built with FastAPI
+- Interactive React dashboard
+- Automated daily data updates using GitHub Actions
+- Open-source and fully transparent development
+
+## Tech Stack
+
+- Python
+- BeautifulSoup
+- Requests
+- Pandas
+- PostgreSQL
+- SQLAlchemy
+- FastAPI
+- React
+- GitHub Actions
+- Docker (planned)
 
 ## Setup
 
-1. Clone the repo and create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate   # venv\Scripts\activate on Windows
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Copy `.env.example` to `.env` and fill in your own values:
-   ```bash
-   cp .env.example .env
-   ```
-4. Run the scraper:
-   ```bash
-   python scraper/fetch_prices.py
-   ```
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/yourusername/nepse-analytics.git
+cd nepse-analytics
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv venv
+```
+
+Activate it.
+
+Linux/macOS
+
+```bash
+source venv/bin/activate
+```
+
+Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure environment variables
+
+Copy the example environment file.
+
+```bash
+cp .env.example .env
+```
+
+Fill in your PostgreSQL credentials and other configuration values.
+
+### 5. Run the scraper
+
+```bash
+python scraper/fetch_prices.py
+```
+
+## Future Plans
+
+- Real-time market monitoring
+- Portfolio tracker
+- Broker heatmaps
+- Sector performance dashboard
+- Financial statement analysis
+- Dividend and bonus history
+- Candlestick pattern detection
+- Machine learning based price prediction
+- AI-powered stock screener
+- Public REST API
+- Docker deployment
+- Cloud hosting
 
 ## Contributing
 
-This is currently a solo learning project, built openly. Issues and
-suggestions are welcome once the core pipeline is stable.
+This project is currently being developed as a solo learning project.
+
+Once the core data pipeline becomes stable, contributions, issue reports, feature requests, and pull requests will be welcomed.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This project is licensed under the MIT License.
+
+See the `LICENSE` file for more information.
