@@ -1,0 +1,33 @@
+# secrets
+.env
+*.env
+
+# python
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# data (don't commit scraped data dumps to git)
+*.csv
+*.db
+*.sqlite3
+data/raw/
+data/processed/
+
+# node (once frontend exists)
+node_modules/
+.next/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# logs
+*.log
