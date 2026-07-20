@@ -20,53 +20,44 @@ HEADERS = {
 
 URL = "https://merolagani.com/LatestMarket.aspx"
 
-# COLUMNS = ["symbol", "ltp", "pct_change", "open", "high", "low", "qty", "pclose", "diff"]
-COLUMNS = ["symbol", "ltp", "pct_change", "open", "high", "low", "qty"]
 
-# def fetch_today_prices():
-#     resp = requests.get(URL, headers=HEADERS, timeout=15)
-#     resp.raise_for_status()
+def to_number(value: str):
+    value = value.replace(",", "").strip()
+    if value in ("", "-"):
+        return None
+    return float(value)
 
-#     soup = BeautifulSoup(resp.text, "lxml")
-#     table = soup.find("table", {"data-live": "live-trading"})
 
-#     if table is None:
-#         print("Table not found — page structure may have changed.")
-#         return []
-
-#     rows = []
-#     for tr in table.find("tbody").find_all("tr"):
-#         cells = tr.find_all("td")
-#         if len(cells) < 9:
-#             continue
-#         symbol = cells[0].get_text(strip=True)
-#         values = [c.get_text(strip=True) for c in cells[1:9]]
-#         row = dict(zip(COLUMNS, [symbol] + values))
-#         row["trend"] = tr.get("class", [""])[0]   # increase-row / decrease-row / nochange-row
-#         rows.append(row)
-
-#     return rows
 def fetch_today_prices():
     resp = requests.get(URL, headers=HEADERS, timeout=15)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
     table = soup.find("table", {"data-live": "live-trading"})
-
     if table is None:
         print("Table not found — page structure may have changed.")
         return []
 
-    # print header labels in order
-    headers = [th.get_text(strip=True) for th in table.find("thead").find_all("th")]
-    print("HEADERS:", headers)
+    rows = []
+    for tr in table.find("tbody").find_all("tr"):
+        cells = tr.find_all("td")
+        if len(cells) < 7:
+            continue
 
-    # print first row's cells in order, right below the headers
-    first_row = table.find("tbody").find("tr")
-    cells = [td.get_text(strip=True) for td in first_row.find_all("td")]
-    print("ROW:   ", cells)
+        texts = [c.get_text(strip=True) for c in cells]
 
-    return []
+        rows.append({
+            "symbol": texts[0],
+            "ltp": to_number(texts[1]),
+            "pct_change": to_number(texts[2]),
+            "high": to_number(texts[3]),
+            "low": to_number(texts[4]),
+            "open": to_number(texts[5]),
+            "qty": int(to_number(texts[6]) or 0),
+            "trend": tr.get("class", [""])[0],
+        })
+
+    return rows
 
 
 if __name__ == "__main__":
