@@ -60,8 +60,14 @@ def fetch_today_prices():
     return rows
 
 
+# if __name__ == "__main__":
+#     data = fetch_today_prices()
+#     print(f"Parsed {len(data)} rows")
+#     for row in data[:5]:
+#         print(row)
 if __name__ == "__main__":
+    from database.save import save_rows
+
     data = fetch_today_prices()
     print(f"Parsed {len(data)} rows")
-    for row in data[:5]:
-        print(row)
+    save_rows(data)

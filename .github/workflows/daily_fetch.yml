@@ -20,6 +20,6 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run daily price fetch
-        run: python scraper/fetch_prices.py
+        run: python -m scraper.fetch_prices
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
