@@ -24,3 +24,15 @@ building on top of this.
   difficult to scrape reliably.
 
 ## Update this file whenever a source's structure changes or breaks.
+
+## merolagani.com — price history (backfill)
+
+- Price History tab requires Playwright (real headless browser), not
+  requests+BS4, due to __doPostBack pagination behavior.
+- Selectors in scraper/historical/fetch_history.py are PLACEHOLDERS as of
+  first write — must be replaced with real ones found via browser DevTools
+  before running (same process as the Day 1 live-price parser fix).
+- Run manually via `python -m scraper.historical.backfill`, not on the
+  daily cron — slow and deliberately rate-limited.
+- Start with SYMBOLS_TO_BACKFILL as a short test list before running
+  against all tracked symbols.
