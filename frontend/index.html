@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nepse-analytics With chart</title>
+<title>nepse-analytics — chart</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root{
@@ -203,7 +203,7 @@
     }
   }
 
-  // --- load OHLC + volume for the selected symbol ---
+  // --- load OHLC + volume for the selected symbol (single fetch, used for both) ---
   async function loadChart() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const errorBox = document.getElementById('error');
@@ -225,10 +225,7 @@
 
       candleSeries.setData(data);
 
-      // volume needs qty too — fetch it from /prices/{symbol} history-style
-      const volRes = await fetch(`${API_BASE}/prices/${symbol}/history`);
-      const volData = await volRes.json();
-      const volumeBars = volData.map((d, i) => ({
+      const volumeBars = data.map(d => ({
         time: d.time,
         value: d.qty || 0,
         color: d.close >= d.open ? '#2FBF71' : '#E5484D',
