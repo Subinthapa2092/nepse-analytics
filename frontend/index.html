@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nepse-analytics — chart</title>
+<title>nepse-analytics  chart</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root{
@@ -74,6 +74,33 @@
   #meta .price.down{color:var(--loss);}
   #meta .status{color:var(--muted); font-size:13px;}
 
+  /* --- time range buttons --- */
+  .tf-row{
+    display:flex;
+    gap:6px;
+    margin-left:auto;
+  }
+  .mono{ font-family:'Consolas','Courier New',monospace; }
+  .tf{
+    padding:5px 12px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    font-size:12px;
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+    transition:background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .tf:hover{
+    color:var(--ink);
+    border-color:var(--muted);
+  }
+  .tf.active{
+    background:var(--crimson);
+    color:#fff;
+    border-color:var(--crimson);
+  }
+
   #chart-container{
     padding:16px 24px 24px;
   }
@@ -113,6 +140,13 @@
   <span class="sym" id="metaSymbol">—</span>
   <span class="price" id="metaPrice"></span>
   <span class="status" id="metaStatus">loading…</span>
+
+  <div class="tf-row mono" id="rangeButtons">
+    <span class="tf" data-days="30">1M</span>
+    <span class="tf" data-days="180">6M</span>
+    <span class="tf active" data-days="365">1Y</span>
+    <span class="tf" data-days="0">All</span>
+  </div>
 </div>
 
 <div id="error"></div>
@@ -123,7 +157,7 @@
 </div>
 
 <script>
-  
+
   const API_BASE = "https://nepse-analytics.onrender.com";
 
   // --- price chart ---
@@ -204,6 +238,32 @@
     }
   }
 
+  // --- time range logic ---
+  function getActiveDays() {
+    const activeBtn = document.querySelector('#rangeButtons .tf.active');
+    return activeBtn ? parseInt(activeBtn.dataset.days) : 365;
+  }
+
+  function applyRange(days) {
+    if (days === 0) {
+      chart.timeScale().fitContent();
+    } else {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - days * 86400;
+      chart.timeScale().setVisibleRange({ from, to });
+    }
+    const range = chart.timeScale().getVisibleLogicalRange();
+    if (range) volumeChart.timeScale().setVisibleLogicalRange(range);
+  }
+
+  document.querySelectorAll('#rangeButtons .tf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#rangeButtons .tf').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyRange(parseInt(btn.dataset.days));
+    });
+  });
+
   // --- load OHLC + volume for the selected symbol (single fetch, used for both) ---
   async function loadChart() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
@@ -233,8 +293,7 @@
       }));
       volumeSeries.setData(volumeBars);
 
-      chart.timeScale().fitContent();
-      volumeChart.timeScale().fitContent();
+      applyRange(getActiveDays());
 
       const latest = data[data.length - 1];
       const prev = data.length > 1 ? data[data.length - 2] : null;
