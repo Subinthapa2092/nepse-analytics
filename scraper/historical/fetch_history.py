@@ -4,6 +4,7 @@ Selectors confirmed against real Merolagani Price History tab HTML.
 """
 
 import re
+import time
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
@@ -34,10 +35,10 @@ def _parse_history_table(html: str) -> list[dict]:
     for tr in table.find_all("tr"):
         cells = tr.find_all("td")
         if len(cells) < 8:
-            continue  # skip header row
+            continue
         texts = [c.get_text(strip=True) for c in cells]
         rows.append({
-            "date": texts[1].replace("/", "-"),   # 2026/07/22 -> 2026-07-22
+            "date": texts[1].replace("/", "-"),
             "ltp": _to_number(texts[2]),
             "pct_change": _to_number(texts[3]),
             "high": _to_number(texts[4]),
@@ -46,6 +47,23 @@ def _parse_history_table(html: str) -> list[dict]:
             "qty": int(_to_number(texts[7]) or 0),
         })
     return rows
+
+
+def _go_to_page(page, page_num: int, retries: int = 3) -> bool:
+    """Attempts to navigate to a given page number. Returns True on success."""
+    for attempt in range(1, retries + 1):
+        try:
+            # make sure the hidden field actually exists before touching it
+            page.wait_for_selector(f"#{HIDDEN_PAGE_FIELD_ID}", state="attached", timeout=10000)
+            page.evaluate(
+                f"changePageIndex('{page_num}', '{HIDDEN_PAGE_FIELD_ID}', '{HIDDEN_BUTTON_ID}')"
+            )
+            page.wait_for_timeout(1500)
+            return True
+        except Exception as e:
+            print(f"  page {page_num} attempt {attempt}/{retries} failed: {e}")
+            time.sleep(2)
+    return False
 
 
 def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | None = None) -> list[dict]:
@@ -57,11 +75,9 @@ def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | No
         page = browser.new_page()
         page.goto(url, timeout=30000)
 
-        # click the Price History tab
         page.click(f"#{HISTORY_TAB_LINK_ID}")
         page.wait_for_timeout(1500)
 
-        # read total pages from the records label, e.g. "[Total pages: 60]"
         records_text = page.inner_text(f"#{RECORDS_LABEL_ID}")
         match = re.search(r"Total pages:\s*(\d+)", records_text)
         total_pages = int(match.group(1)) if match else 1
@@ -71,16 +87,18 @@ def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | No
 
         print(f"{symbol}: {records_text.strip()} -> fetching {total_pages} page(s)")
 
-        for page_num in range(1, total_pages + 1):
-            if page_num > 1:
-                page.evaluate(
-                    f"changePageIndex('{page_num}', '{HIDDEN_PAGE_FIELD_ID}', '{HIDDEN_BUTTON_ID}')"
-                )
-                page.wait_for_timeout(1200)  # let postback complete
+        # page 1 is already loaded
+        html = page.content()
+        all_rows.extend(_parse_history_table(html))
+
+        for page_num in range(2, total_pages + 1):
+            success = _go_to_page(page, page_num)
+            if not success:
+                print(f"  giving up on page {page_num} for {symbol} — keeping {len(all_rows)} rows collected so far")
+                break  # stop here, but keep whatever we already got
 
             html = page.content()
-            rows = _parse_history_table(html)
-            all_rows.extend(rows)
+            all_rows.extend(_parse_history_table(html))
 
         browser.close()
 

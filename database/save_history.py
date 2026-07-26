@@ -8,6 +8,9 @@ from database.connection import get_connection
 
 
 def save_historical_rows(rows: list[dict]):
+    """
+    Each row must have: symbol, date, open, high, low, close (or ltp), qty
+    """
     if not rows:
         print("No historical rows to save.")
         return
@@ -20,7 +23,16 @@ def save_historical_rows(rows: list[dict]):
             insert into daily_prices (symbol, ltp, pct_change, high, low, open, qty, fetched_at)
             values (%s, %s, %s, %s, %s, %s, %s, %s::date)
             """,
-            (r["symbol"], r["ltp"], r["pct_change"], r["high"], r["low"], r["open"], r["qty"], r["date"]),
+            (
+                r["symbol"],
+                r.get("ltp"),
+                r.get("pct_change"),
+                r["high"],
+                r["low"],
+                r["open"],
+                r.get("qty", 0),
+                r["date"],
+            ),
         )
     conn.commit()
     cur.close()
