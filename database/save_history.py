@@ -2,6 +2,11 @@
 Bulk insert for historical OHLCV data (backfill), separate from the
 daily save_rows() logic since historical inserts don't need the
 "already have today's data" duplicate guard.
+
+Uses ON CONFLICT DO NOTHING so re-running backfill (e.g. after a
+restart or connectivity drop) is always safe — a row that already
+exists for that (symbol, date) is silently skipped instead of
+inserted again. Requires a unique constraint on (symbol, fetched_at).
 """
 
 from database.connection import get_connection
@@ -24,6 +29,7 @@ def save_historical_rows(rows: list[dict]):
                 """
                 insert into daily_prices (symbol, ltp, pct_change, high, low, open, qty, fetched_at)
                 values (%s, %s, %s, %s, %s, %s, %s, %s::date)
+                on conflict (symbol, fetched_at) do nothing
                 """,
                 (
                     r["symbol"],
