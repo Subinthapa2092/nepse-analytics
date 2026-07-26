@@ -1,10 +1,16 @@
 """
 Historical price scraper using Playwright.
 Selectors confirmed against real Merolagani Price History tab HTML.
+
+NOTE: Merolagani appears to apply an IP-level rate limit that kicks in
+around page 25-30 of any sustained scraping run, regardless of browser
+session. Restarting the session doesn't help since it's IP-based, not
+session-based. Rather than fight this, we accept partial history per
+symbol (typically 2,000-2,700 rows / ~8-10 years) as good enough for
+charting and analysis purposes.
 """
 
 import re
-import time
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
@@ -49,23 +55,6 @@ def _parse_history_table(html: str) -> list[dict]:
     return rows
 
 
-def _go_to_page(page, page_num: int, retries: int = 3) -> bool:
-    """Attempts to navigate to a given page number. Returns True on success."""
-    for attempt in range(1, retries + 1):
-        try:
-            # make sure the hidden field actually exists before touching it
-            page.wait_for_selector(f"#{HIDDEN_PAGE_FIELD_ID}", state="attached", timeout=10000)
-            page.evaluate(
-                f"changePageIndex('{page_num}', '{HIDDEN_PAGE_FIELD_ID}', '{HIDDEN_BUTTON_ID}')"
-            )
-            page.wait_for_timeout(1500)
-            return True
-        except Exception as e:
-            print(f"  page {page_num} attempt {attempt}/{retries} failed: {e}")
-            time.sleep(2)
-    return False
-
-
 def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | None = None) -> list[dict]:
     url = f"https://merolagani.com/CompanyDetail.aspx?symbol={symbol}"
     all_rows = []
@@ -74,31 +63,32 @@ def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | No
         browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
         page.goto(url, timeout=30000)
-
         page.click(f"#{HISTORY_TAB_LINK_ID}")
         page.wait_for_timeout(1500)
 
         records_text = page.inner_text(f"#{RECORDS_LABEL_ID}")
         match = re.search(r"Total pages:\s*(\d+)", records_text)
         total_pages = int(match.group(1)) if match else 1
-
         if max_pages:
             total_pages = min(total_pages, max_pages)
 
         print(f"{symbol}: {records_text.strip()} -> fetching {total_pages} page(s)")
 
-        # page 1 is already loaded
         html = page.content()
         all_rows.extend(_parse_history_table(html))
 
         for page_num in range(2, total_pages + 1):
-            success = _go_to_page(page, page_num)
-            if not success:
-                print(f"  giving up on page {page_num} for {symbol} — keeping {len(all_rows)} rows collected so far")
-                break  # stop here, but keep whatever we already got
-
-            html = page.content()
-            all_rows.extend(_parse_history_table(html))
+            try:
+                page.wait_for_selector(f"#{HIDDEN_PAGE_FIELD_ID}", state="attached", timeout=8000)
+                page.evaluate(
+                    f"changePageIndex('{page_num}', '{HIDDEN_PAGE_FIELD_ID}', '{HIDDEN_BUTTON_ID}')"
+                )
+                page.wait_for_timeout(1800)
+                html = page.content()
+                all_rows.extend(_parse_history_table(html))
+            except Exception:
+                print(f"  stopped at page {page_num} for {symbol} — keeping {len(all_rows)} rows (~{len(all_rows)//250} years)")
+                break
 
         browser.close()
 
