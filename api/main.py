@@ -59,34 +59,6 @@ def get_price(symbol: str):
     return dict(zip(COLUMNS, row))
 
 
-# @app.get("/prices/{symbol}/history")
-# def get_price_history(symbol: str):
-#     """Full OHLC history for one symbol, formatted for lightweight-charts."""
-#     conn = get_connection()
-#     cur = conn.cursor()
-#     cur.execute("""
-#         select fetched_at, open, high, low, ltp
-#         from daily_prices
-#         where symbol = %s
-#         order by fetched_at asc
-#     """, (symbol.upper(),))
-#     rows = cur.fetchall()
-#     cur.close()
-#     conn.close()
-
-#     if not rows:
-#         raise HTTPException(status_code=404, detail=f"No history found for '{symbol}'")
-
-#     return [
-#         {
-#             "time": r[0].strftime("%Y-%m-%d"),
-#             "open": float(r[1]),
-#             "high": float(r[2]),
-#             "low": float(r[3]),
-#             "close": float(r[4]),
-#         }
-#         for r in rows
-#     ]
 @app.get("/prices/{symbol}/history")
 def get_price_history(symbol: str):
     conn = get_connection()

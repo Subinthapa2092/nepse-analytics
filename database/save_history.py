@@ -17,24 +17,31 @@ def save_historical_rows(rows: list[dict]):
 
     conn = get_connection()
     cur = conn.cursor()
-    for r in rows:
-        cur.execute(
-            """
-            insert into daily_prices (symbol, ltp, pct_change, high, low, open, qty, fetched_at)
-            values (%s, %s, %s, %s, %s, %s, %s, %s::date)
-            """,
-            (
-                r["symbol"],
-                r.get("ltp"),
-                r.get("pct_change"),
-                r["high"],
-                r["low"],
-                r["open"],
-                r.get("qty", 0),
-                r["date"],
-            ),
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
-    print(f"Inserted {len(rows)} historical rows.")
+    saved = 0
+    try:
+        for r in rows:
+            cur.execute(
+                """
+                insert into daily_prices (symbol, ltp, pct_change, high, low, open, qty, fetched_at)
+                values (%s, %s, %s, %s, %s, %s, %s, %s::date)
+                """,
+                (
+                    r["symbol"],
+                    r.get("ltp"),
+                    r.get("pct_change"),
+                    r["high"],
+                    r["low"],
+                    r["open"],
+                    r.get("qty", 0),
+                    r["date"],
+                ),
+            )
+            saved += 1
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Database error after saving {saved}/{len(rows)} rows: {e}")
+    finally:
+        cur.close()
+        conn.close()
+    print(f"Inserted {saved} historical rows.")

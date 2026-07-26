@@ -40,13 +40,18 @@ def run_backfill(symbols: list[str] = None, max_pages: int | None = None):
 
     for i, symbol in enumerate(symbols, start=1):
         print(f"\n[{i}/{len(symbols)}] Fetching history for {symbol}...")
-        try:
-            rows = fetch_symbol_history(symbol, max_pages=max_pages)
-            for r in rows:
-                r["symbol"] = symbol
-            save_historical_rows(rows)
-        except Exception as e:
-            print(f"FAILED for {symbol}: {e}")
+        for attempt in range(1, 3):
+            try:
+                rows = fetch_symbol_history(symbol, max_pages=max_pages)
+                for r in rows:
+                    r["symbol"] = symbol
+                save_historical_rows(rows)
+                break
+            except Exception as e:
+                print(f"FAILED for {symbol} (attempt {attempt}/2): {e}")
+                if attempt < 2:
+                    print("  waiting 30s before retry (possible connectivity issue)...")
+                    time.sleep(30)
 
         if i < len(symbols):
             time.sleep(DELAY_BETWEEN_SYMBOLS_SECONDS)
