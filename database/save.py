@@ -31,4 +31,4 @@ def save_rows(rows: list[dict]):
     conn.commit()
     cur.close()
     conn.close()
-    print(f"Saved {len(rows)} rows.")
+    print(f"Saved {len(rows)} rows")
