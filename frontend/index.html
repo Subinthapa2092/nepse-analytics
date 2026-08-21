@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -284,6 +284,362 @@
       const data = await res.json();
 
       candleSeries.setData(data);
+
+      const volumeBars = data.map(d => ({
+        time: d.time,
+        value: d.qty || 0,
+        color: d.close >= d.open ? '#2FBF71' : '#E5484D',
+      }));
+      volumeSeries.setData(volumeBars);
+
+      applyRange(getActiveDays());
+
+      const latest = data[data.length - 1];
+      const prev = data.length > 1 ? data[data.length - 2] : null;
+      priceEl.textContent = latest.close.toFixed(2);
+
+      if (prev) {
+        const change = ((latest.close - prev.close) / prev.close) * 100;
+        priceEl.className = 'price ' + (change >= 0 ? 'up' : 'down');
+        priceEl.textContent += ` (${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%)`;
+      }
+
+      statusEl.textContent = `${data.length} day${data.length === 1 ? '' : 's'} of history`;
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.style.display = 'block';
+      statusEl.textContent = 'failed to load';
+    }
+  }
+
+  document.getElementById('symbolInput').addEventListener('change', loadChart);
+
+  resizeCharts();
+  loadSymbolList().then(loadChart);
+</script>
+
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nepse-analytics  chart's</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161C;
+    --line:#232A33;
+    --ink:#E8E6DE;
+    --muted:#7C8590;
+    --crimson:#C8382E;
+    --gain:#2FBF71;
+    --loss:#E5484D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Segoe UI', sans-serif;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{
+    font-weight:600;
+    font-size:15px;
+    margin-right:auto;
+  }
+  .brand::before{content:"● "; color:var(--crimson);}
+
+  select{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:14px;
+    width:160px;
+  }
+  select:focus{outline:none; border-color:var(--crimson);}
+
+  button{
+    background:var(--crimson);
+    color:white;
+    border:none;
+    padding:8px 16px;
+    border-radius:6px;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button:hover{opacity:0.9;}
+
+  #meta{
+    padding:16px 24px 0;
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  #meta .sym{font-size:20px; font-weight:600;}
+  #meta .price{font-size:18px;}
+  #meta .price.up{color:var(--gain);}
+  #meta .price.down{color:var(--loss);}
+  #meta .status{color:var(--muted); font-size:13px;}
+
+  /* --- time ranges buttons --- */
+  .tf-row{
+    display:flex;
+    gap:6px;
+    margin-left:auto;
+  }
+  .mono{ font-family:'Consolas','Courier New',monospace; }
+  .tf{
+    padding:5px 12px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    font-size:12px;
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+    transition:background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .tf:hover{
+    color:var(--ink);
+    border-color:var(--muted);
+  }
+  .tf.active{
+    background:var(--crimson);
+    color:#fff;
+    border-color:var(--crimson);
+  }
+
+  #chart-container{
+    padding:16px 24px 24px;
+  }
+  #chart{
+    width:100%;
+    height:420px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px 8px 0 0;
+    border-bottom:none;
+  }
+  #volume{
+    width:100%;
+    height:110px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:0 0 8px 8px;
+  }
+
+  #error{
+    display:none;
+    padding:0 24px 16px;
+    color:var(--loss);
+    font-size:13px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">nepse-analytics</div>
+  <select id="symbolInput"></select>
+  <button onclick="loadChart()">Load</button>
+</header>
+
+<div id="meta">
+  <span class="sym" id="metaSymbol">—</span>
+  <span class="price" id="metaPrice"></span>
+  <span class="status" id="metaStatus">loading…</span>
+
+  <div class="tf-row mono" id="rangeButtons">
+    <span class="tf" data-days="30">1M</span>
+    <span class="tf" data-days="180">6M</span>
+    <span class="tf active" data-days="365">1Y</span>
+    <span class="tf" data-days="0">All</span>
+  </div>
+</div>
+
+<div id="error"></div>
+
+<div id="chart-container">
+  <div id="chart"></div>
+  <div id="volume"></div>
+</div>
+
+<script>
+
+  const API_BASE = "https://nepse-analytics.onrender.com";
+
+  // --- price chart ---
+  const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    layout: {
+      background: { color: '#12161C' },
+      textColor: '#E8E6DE',
+    },
+    grid: {
+      vertLines: { color: '#232A33' },
+      horzLines: { color: '#232A33' },
+    },
+    rightPriceScale: { borderColor: '#232A33' },
+    timeScale: { borderColor: '#232A33', visible: false },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#2FBF71',
+    downColor: '#E5484D',
+    borderVisible: false,
+    wickUpColor: '#2FBF71',
+    wickDownColor: '#E5484D',
+  });
+
+  // --- VWMA (Volume Weighted Moving Average) overlay ---
+  // NOTE: true VWAP needs intraday ticks that reset each session; this
+  // dataset is one bar per day, so VWMA (a volume-weighted rolling
+  // average across days) is the correct equivalent here.
+  const VWMA_LENGTH = 20;
+  const vwmaSeries = chart.addLineSeries({
+    color: '#FFB800',
+    lineWidth: 2,
+    priceLineVisible: false,
+    lastValueVisible: true,
+    title: `VWMA(${VWMA_LENGTH})`,
+  });
+
+  function computeVWMA(bars, length) {
+    const out = [];
+    for (let i = 0; i < bars.length; i++) {
+      if (i < length - 1) continue; // not enough bars yet for a full window
+      let sumPV = 0;
+      let sumV = 0;
+      for (let j = i - length + 1; j <= i; j++) {
+        const b = bars[j];
+        const typicalPrice = (b.high + b.low + b.close) / 3; // hlc3
+        const vol = b.qty || 0;
+        sumPV += typicalPrice * vol;
+        sumV += vol;
+      }
+      if (sumV > 0) {
+        out.push({ time: bars[i].time, value: sumPV / sumV });
+      }
+    }
+    return out;
+  }
+
+  // --- volume chart (separate pane, synced) ---
+  const volumeChart = LightweightCharts.createChart(document.getElementById('volume'), {
+    layout: {
+      background: { color: '#12161C' },
+      textColor: '#7C8590',
+    },
+    grid: {
+      vertLines: { color: '#232A33' },
+      horzLines: { color: '#232A33' },
+    },
+    rightPriceScale: { borderColor: '#232A33' },
+    timeScale: { borderColor: '#232A33' },
+  });
+
+  const volumeSeries = volumeChart.addHistogramSeries({
+    priceFormat: { type: 'volume' },
+    color: '#2FBF71',
+  });
+
+  // sync the two timescales together (scroll/zoom in one moves the other)
+  function syncTimeScales(source, target) {
+    source.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) target.timeScale().setVisibleLogicalRange(range);
+    });
+  }
+  syncTimeScales(chart, volumeChart);
+  syncTimeScales(volumeChart, chart);
+
+  function resizeCharts() {
+    const chartEl = document.getElementById('chart');
+    const volEl = document.getElementById('volume');
+    chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight });
+    volumeChart.applyOptions({ width: volEl.clientWidth, height: volEl.clientHeight });
+  }
+  window.addEventListener('resize', resizeCharts);
+
+  // --- populate symbol dropdown from your own API ---
+  async function loadSymbolList() {
+    const res = await fetch(`${API_BASE}/prices`);
+    const data = await res.json();
+    const select = document.getElementById('symbolInput');
+    data
+      .map(row => row.symbol)
+      .sort()
+      .forEach(sym => {
+        const opt = document.createElement('option');
+        opt.value = sym;
+        opt.textContent = sym;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === "ACLBSL")) {
+      select.value = "ACLBSL";
+    }
+  }
+
+  // --- time range logic ---
+  function getActiveDays() {
+    const activeBtn = document.querySelector('#rangeButtons .tf.active');
+    return activeBtn ? parseInt(activeBtn.dataset.days) : 365;
+  }
+
+  function applyRange(days) {
+    if (days === 0) {
+      chart.timeScale().fitContent();
+    } else {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - days * 86400;
+      chart.timeScale().setVisibleRange({ from, to });
+    }
+    const range = chart.timeScale().getVisibleLogicalRange();
+    if (range) volumeChart.timeScale().setVisibleLogicalRange(range);
+  }
+
+  document.querySelectorAll('#rangeButtons .tf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#rangeButtons .tf').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyRange(parseInt(btn.dataset.days));
+    });
+  });
+
+  // --- load OHLC + volume for the selected symbol (single fetch, used for both) ---
+  async function loadChart() {
+    const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
+    const errorBox = document.getElementById('error');
+    const statusEl = document.getElementById('metaStatus');
+    const symbolEl = document.getElementById('metaSymbol');
+    const priceEl = document.getElementById('metaPrice');
+
+    errorBox.style.display = 'none';
+    statusEl.textContent = 'loading…';
+    symbolEl.textContent = symbol;
+    priceEl.textContent = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/prices/${symbol}/history`);
+      if (!res.ok) {
+        throw new Error(`No data found for "${symbol}" (status ${res.status})`);
+      }
+      const data = await res.json();
+
+      candleSeries.setData(data);
+      vwmaSeries.setData(computeVWMA(data, VWMA_LENGTH));
 
       const volumeBars = data.map(d => ({
         time: d.time,
