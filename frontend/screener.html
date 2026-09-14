@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nepse-analytics — screener</title>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161C;
+    --line:#232A33;
+    --ink:#E8E6DE;
+    --muted:#7C8590;
+    --crimson:#C8382E;
+    --gain:#2FBF71;
+    --loss:#E5484D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Segoe UI', sans-serif;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:16px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{
+    font-weight:600;
+    font-size:15px;
+    margin-right:auto;
+  }
+  .brand::before{content:"● "; color:var(--crimson);}
+
+  nav a{
+    color:var(--muted);
+    text-decoration:none;
+    font-size:13px;
+    padding:6px 10px;
+    border-radius:6px;
+  }
+  nav a:hover{color:var(--ink); background:var(--panel);}
+  nav a.active{color:var(--ink); background:var(--panel);}
+
+  main{padding:20px 24px;}
+
+  .page-title{
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  .page-sub{
+    color:var(--muted);
+    font-size:13px;
+    margin:0 0 20px;
+  }
+
+  #status{
+    color:var(--muted);
+    font-size:13px;
+    padding:12px 0;
+  }
+  #error{
+    display:none;
+    color:var(--loss);
+    font-size:13px;
+    padding:12px 0;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    display:none;
+  }
+  th{
+    text-align:left;
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    user-select:none;
+  }
+  th:hover{color:var(--ink);}
+  td{
+    padding:11px 16px;
+    font-size:14px;
+    border-bottom:1px solid var(--line);
+  }
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+
+  a.symlink{
+    color:var(--ink);
+    text-decoration:none;
+    font-weight:600;
+  }
+  a.symlink:hover{color:var(--crimson);}
+
+  .ratio{
+    font-family:'Consolas','Courier New',monospace;
+  }
+  .tag-tight{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    font-size:11px;
+    font-family:'Consolas','Courier New',monospace;
+  }
+  .tag-tight.strong{background:rgba(47,191,113,0.15); color:var(--gain);}
+  .tag-tight.mild{background:rgba(255,255,255,0.06); color:var(--muted);}
+
+  .search-row{
+    margin-bottom:14px;
+  }
+  #symbolSearch{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:13px;
+    width:220px;
+  }
+  #symbolSearch:focus{outline:none; border-color:var(--crimson);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">nepse-analytics</div>
+  <nav>
+    <a href="index.html">Chart</a>
+    <a href="screener.html" class="active">Screener</a>
+  </nav>
+</header>
+
+<main>
+  <h1 class="page-title">VCP Screener</h1>
+  <p class="page-sub">Symbols with tightening daily volatility — recent 10-day avg. range vs. prior 10-day avg. range. Lower ratio = tighter contraction.</p>
+
+  <div class="search-row">
+    <input type="text" id="symbolSearch" placeholder="Filter by symbol…">
+  </div>
+
+  <p id="status">Loading…</p>
+  <p id="error"></p>
+
+  <table id="resultsTable">
+    <thead>
+      <tr>
+        <th data-key="symbol">Symbol</th>
+        <th data-key="prior_avg_range_pct">Prior Range %</th>
+        <th data-key="recent_avg_range_pct">Recent Range %</th>
+        <th data-key="contraction_ratio">Contraction Ratio</th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody"></tbody>
+  </table>
+</main>
+
+<script>
+  const API_BASE = "https://nepse-analytics.onrender.com";
+  let allResults = [];
+  let sortKey = "contraction_ratio";
+  let sortAsc = true;
+
+  function renderTable(rows) {
+    const body = document.getElementById('resultsBody');
+    body.innerHTML = rows.map(hit => {
+      const tag = hit.contraction_ratio <= 0.5
+        ? `<span class="tag-tight strong">strong</span>`
+        : `<span class="tag-tight mild">mild</span>`;
+      return `
+        <tr>
+          <td><a class="symlink" href="index.html?symbol=${hit.symbol}">${hit.symbol}</a></td>
+          <td class="ratio">${hit.prior_avg_range_pct}%</td>
+          <td class="ratio">${hit.recent_avg_range_pct}%</td>
+          <td class="ratio">${hit.contraction_ratio} ${tag}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function sortAndRender() {
+    const sorted = [...allResults].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (typeof va === 'string') {
+        return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
+      return sortAsc ? va - vb : vb - va;
+    });
+    renderTable(sorted);
+  }
+
+  document.querySelectorAll('th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = true;
+      }
+      sortAndRender();
+    });
+  });
+
+  document.getElementById('symbolSearch').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toUpperCase();
+    const filtered = q
+      ? allResults.filter(r => r.symbol.includes(q))
+      : allResults;
+    const sorted = [...filtered].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortAsc ? va - vb : vb - va;
+    });
+    renderTable(sorted);
+  });
+
+  async function loadScreener() {
+    const status = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const table = document.getElementById('resultsTable');
+
+    try {
+      const res = await fetch(`${API_BASE}/screener/vcp`);
+      if (!res.ok) throw new Error(`Request failed (status ${res.status})`);
+      allResults = await res.json();
+
+      if (allResults.length === 0) {
+        status.textContent = "No symbols currently showing contraction.";
+        return;
+      }
+
+      status.textContent = `${allResults.length} symbol${allResults.length === 1 ? '' : 's'} found — sorted by contraction ratio.`;
+      table.style.display = 'table';
+      sortAndRender();
+    } catch (err) {
+      status.textContent = '';
+      errorEl.textContent = `Failed to load: ${err.message}`;
+      errorEl.style.display = 'block';
+    }
+  }
+
+  loadScreener();
+</script>
+
+</body>
+</html>

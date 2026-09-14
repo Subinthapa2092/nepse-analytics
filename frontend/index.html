@@ -105,10 +105,13 @@
 
 <header>
   <div class="brand">nepse-analytics</div>
+  <nav style="margin-right:auto; display:flex; gap:6px;">
+    <a href="index.html" style="color:var(--ink); background:var(--panel); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px;">Chart</a>
+    <a href="screener.html" style="color:var(--muted); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px;">Screener</a>
+  </nav>
   <select id="symbolInput"></select>
   <button onclick="loadChart()">Load</button>
 </header>
-
 <div id="meta">
   <span class="sym" id="metaSymbol">—</span>
   <span class="price" id="metaPrice"></span>
