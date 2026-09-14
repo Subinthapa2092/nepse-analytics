@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import get_connection
+from scraper.screener.vcp_detector import run_screener
 
 app = FastAPI(title="nepse-analytics API")
 
@@ -59,36 +60,9 @@ def get_price(symbol: str):
     return dict(zip(COLUMNS, row))
 
 
-# @app.get("/prices/{symbol}/history")
-# def get_price_history(symbol: str):
-#     """Full OHLC history for one symbol, formatted for lightweight-charts."""
-#     conn = get_connection()
-#     cur = conn.cursor()
-#     cur.execute("""
-#         select fetched_at, open, high, low, ltp
-#         from daily_prices
-#         where symbol = %s
-#         order by fetched_at asc
-#     """, (symbol.upper(),))
-#     rows = cur.fetchall()
-#     cur.close()
-#     conn.close()
-
-#     if not rows:
-#         raise HTTPException(status_code=404, detail=f"No history found for '{symbol}'")
-
-#     return [
-#         {
-#             "time": r[0].strftime("%Y-%m-%d"),
-#             "open": float(r[1]),
-#             "high": float(r[2]),
-#             "low": float(r[3]),
-#             "close": float(r[4]),
-#         }
-#         for r in rows
-#     ]
 @app.get("/prices/{symbol}/history")
 def get_price_history(symbol: str):
+    """Full OHLC + volume history for one symbol, formatted for lightweight-charts."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -115,3 +89,17 @@ def get_price_history(symbol: str):
         }
         for r in rows
     ]
+
+
+@app.get("/screener/vcp")
+def screener_vcp():
+    """
+    Returns symbols currently showing VCP (Volatility Contraction Pattern) —
+    daily trading range tightening over the recent window vs. the prior one.
+
+    NOTE: this re-runs the full scan across all symbols on every request.
+    Fine for now; if it gets slow under real traffic, cache the result and
+    refresh it once daily instead of computing it live per-request.
+    """
+    hits = run_screener()
+    return hits
