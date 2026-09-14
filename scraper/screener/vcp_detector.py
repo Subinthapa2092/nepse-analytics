@@ -97,5 +97,21 @@ def run_screener(symbols: list[str] = None):
     return hits
 
 
+
+def save_screener_results(hits: list[dict]):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("delete from screener_results")  # clear old results each run
+    for hit in hits:
+        cur.execute("""
+            insert into screener_results (symbol, prior_avg_range_pct, recent_avg_range_pct, contraction_ratio)
+            values (%s, %s, %s, %s)
+        """, (hit["symbol"], hit["prior_avg_range_pct"], hit["recent_avg_range_pct"], hit["contraction_ratio"]))
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"Saved {len(hits)} screener results.")
+
 if __name__ == "__main__":
-    run_screener()
+    hits = run_screener()
+    save_screener_results(hits)

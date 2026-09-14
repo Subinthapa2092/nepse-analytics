@@ -93,13 +93,16 @@ def get_price_history(symbol: str):
 
 @app.get("/screener/vcp")
 def screener_vcp():
-    """
-    Returns symbols currently showing VCP (Volatility Contraction Pattern) —
-    daily trading range tightening over the recent window vs. the prior one.
-
-    NOTE: this re-runs the full scan across all symbols on every request.
-    Fine for now; if it gets slow under real traffic, cache the result and
-    refresh it once daily instead of computing it live per-request.
-    """
-    hits = run_screener()
-    return hits
+    """Returns the most recently computed VCP screener results (cached, not live)."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        select symbol, prior_avg_range_pct, recent_avg_range_pct, contraction_ratio
+        from screener_results
+        order by contraction_ratio asc
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    cols = ["symbol", "prior_avg_range_pct", "recent_avg_range_pct", "contraction_ratio"]
+    return [dict(zip(cols, row)) for row in rows]
