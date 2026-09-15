@@ -1,0 +1,25 @@
+name: Daily VCP Screener
+
+on:
+  schedule:
+    # runs at 11:00 UTC = 4:45 PM Nepal time, after the price scraper
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch:   # lets you trigger it manually too
+
+jobs:
+  run-screener:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run VCP screener
+        run: python -m scraper.screener.vcp_detector
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
