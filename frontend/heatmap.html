@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nepse-analytics — heatmap</title>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161C;
+    --line:#232A33;
+    --ink:#E8E6DE;
+    --muted:#7C8590;
+    --crimson:#C8382E;
+    --gain:#2FBF71;
+    --loss:#E5484D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Segoe UI', sans-serif;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:16px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{ font-weight:600; font-size:15px; }
+  .brand::before{content:"● "; color:var(--crimson);}
+
+  nav a{
+    color:var(--muted);
+    text-decoration:none;
+    font-size:13px;
+    padding:6px 10px;
+    border-radius:6px;
+  }
+  nav a:hover{color:var(--ink); background:var(--panel);}
+  nav a.active{color:var(--ink); background:var(--panel);}
+
+  main{padding:20px 24px;}
+
+  .page-title{font-size:18px; font-weight:600; margin:0 0 4px;}
+  .page-sub{color:var(--muted); font-size:13px; margin:0 0 20px;}
+
+  #status{color:var(--muted); font-size:13px; padding:12px 0;}
+  #error{display:none; color:var(--loss); font-size:13px; padding:12px 0;}
+
+  .legend{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:16px;
+  }
+  .legend-scale{
+    display:flex;
+    height:8px;
+    width:180px;
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .legend-scale div{flex:1;}
+
+  .heatmap{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));
+    gap:4px;
+  }
+  .tile{
+    border-radius:6px;
+    padding:10px 8px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    min-height:64px;
+    cursor:pointer;
+    transition:transform 0.1s;
+    text-decoration:none;
+    color:inherit;
+  }
+  .tile:hover{ transform:scale(1.04); z-index:2; }
+  .tile .sym{ font-size:12.5px; font-weight:700; }
+  .tile .chg{ font-size:12.5px; font-family:'Consolas','Courier New',monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">nepse-analytics</div>
+  <nav style="margin-right:auto; display:flex; gap:6px;">
+    <a href="index.html">Chart</a>
+    <a href="screener.html">Screener</a>
+    <a href="heatmap.html" class="active">Heatmap</a>
+  </nav>
+</header>
+
+<main>
+  <h1 class="page-title">Market Heatmap</h1>
+  <p class="page-sub">All tracked symbols, colored by today's % change. Darker = stronger move. Click a tile to open its chart.</p>
+
+  <div class="legend">
+    <span>−5%</span>
+    <div class="legend-scale">
+      <div style="background:#7a1a16"></div>
+      <div style="background:#a4271f"></div>
+      <div style="background:#c8382e"></div>
+      <div style="background:#3a3f45"></div>
+      <div style="background:#1f8a53"></div>
+      <div style="background:#2fbf71"></div>
+      <div style="background:#3fe08a"></div>
+    </div>
+    <span>+5%</span>
+    <span style="margin-left:10px;">(gray = ~0% change)</span>
+  </div>
+
+  <p id="status">Loading…</p>
+  <p id="error"></p>
+
+  <div class="heatmap" id="heatmapGrid"></div>
+</main>
+
+<script>
+  const API_BASE = "https://nepse-analytics.onrender.com";
+
+  // maps a % change value to a red->gray->green color
+  function colorForChange(pct) {
+    const clamped = Math.max(-5, Math.min(5, pct));
+    if (clamped < 0) {
+      const t = Math.abs(clamped) / 5; // 0 to 1
+      const r = Math.round(58 + (200 - 58) * t);
+      const g = Math.round(63 + (56 - 63) * t);
+      const b = Math.round(69 + (46 - 69) * t);
+      return `rgb(${r},${g},${b})`;
+    } else if (clamped > 0) {
+      const t = clamped / 5;
+      const r = Math.round(58 + (47 - 58) * t);
+      const g = Math.round(63 + (191 - 63) * t);
+      const b = Math.round(69 + (113 - 69) * t);
+      return `rgb(${r},${g},${b})`;
+    }
+    return 'rgb(58,63,69)';
+  }
+
+  function textColorFor(pct) {
+    return Math.abs(pct) > 1.5 ? '#fff' : '#E8E6DE';
+  }
+
+  async function loadHeatmap() {
+    const status = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const grid = document.getElementById('heatmapGrid');
+
+    try {
+      const res = await fetch(`${API_BASE}/prices`);
+      if (!res.ok) throw new Error(`Request failed (status ${res.status})`);
+      const data = await res.json();
+
+      const withChange = data.filter(d => d.pct_change !== null && d.pct_change !== undefined);
+      withChange.sort((a, b) => b.pct_change - a.pct_change);
+
+      grid.innerHTML = withChange.map(d => {
+        const pct = parseFloat(d.pct_change);
+        const bg = colorForChange(pct);
+        const txt = textColorFor(pct);
+        const sign = pct > 0 ? '+' : '';
+        return `
+          <a class="tile" href="index.html?symbol=${d.symbol}" style="background:${bg}; color:${txt};">
+            <span class="sym">${d.symbol}</span>
+            <span class="chg">${sign}${pct.toFixed(2)}%</span>
+          </a>
+        `;
+      }).join('');
+
+      status.textContent = `${withChange.length} symbols · updated from latest close`;
+    } catch (err) {
+      status.textContent = '';
+      errorEl.textContent = `Failed to load: ${err.message}`;
+      errorEl.style.display = 'block';
+    }
+  }
+
+  loadHeatmap();
+</script>
+
+</body>
+</html>
