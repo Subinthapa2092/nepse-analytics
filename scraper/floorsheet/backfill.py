@@ -37,7 +37,9 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-from scraper.floorsheet.aggregate import aggregate_by_broker, total_amount
+from scraper.floorsheet.aggregate import (
+    aggregate_by_broker, find_missing_contracts, total_amount, total_quantity,
+)
 from scraper.floorsheet.fetch_floorsheet import DateMismatch, FloorsheetSession
 
 RAW_DIR = Path("data/raw/floorsheet")  # already git-ignored by data/raw/ in .gitignore
@@ -55,6 +57,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--all", action="store_true", help="every pending trading day")
     p.add_argument("--from", dest="date_from", type=_parse_date, help="earliest date to consider")
     p.add_argument("--to", dest="date_to", type=_parse_date, help="latest date to consider")
+    p.add_argument("--tolerance", type=float, default=0.0025,
+                   help="accept a day if it is short by at most this fraction of the site's trade "
+                        "count (default 0.0025 = 0.25%%); the shortfall is recorded in the database. "
+                        "Use 0 to demand an exact match")
     p.add_argument("--max-pages", type=int, help="only read N pages per day (testing; day is NOT saved)")
     p.add_argument("--dry-run", action="store_true", help="scrape and print, but don't touch the database")
     p.add_argument("--no-raw", action="store_true", help="don't keep the raw trades as .csv.gz")
@@ -82,9 +88,18 @@ def _select_dates(args: argparse.Namespace) -> list[date]:
     return pending if args.all else pending[: args.days]
 
 
-def _write_raw(trade_date: date, trades: list[dict]) -> Path:
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    path = RAW_DIR / f"{trade_date.isoformat()}.csv.gz"
+def _write_missing(trade_date: date, missing: list[str], subdir: str = "") -> Path:
+    folder = RAW_DIR / subdir if subdir else RAW_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{trade_date.isoformat()}.missing.txt"
+    path.write_text("\n".join(missing) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_raw(trade_date: date, trades: list[dict], subdir: str = "") -> Path:
+    folder = RAW_DIR / subdir if subdir else RAW_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{trade_date.isoformat()}.csv.gz"
     with gzip.open(path, "wt", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=RAW_FIELDS)
         w.writeheader()
@@ -124,28 +139,66 @@ def main() -> None:
                     print(f"  failed: {e}")
                     result = None
 
+                accepted_short = (
+                    result is not None and not result.complete
+                    and result.shortfall is not None and result.expected_rows
+                    and 0 < result.shortfall <= args.tolerance * result.expected_rows
+                )
+
                 if result is None or not result.rows:
                     reason = "error" if result is None else result.note
                     print(f"  no data for {d} ({reason})")
                     bad_streak += 1
-                elif not result.complete:
+                elif not (result.complete or accepted_short):
                     print(f"  INCOMPLETE, not saved: {result.note} "
                           f"({len(result.rows):,} trades read)")
-                    # a deliberate --max-pages test is not a failure
                     if not args.max_pages:
-                        bad_streak += 1
+                        bad_streak += 1  # a deliberate --max-pages test is not a failure
+                        if not args.no_raw and not args.dry_run:
+                            _write_raw(d, result.rows, subdir="incomplete")
+                            missing = find_missing_contracts(result.rows)
+                            if missing:
+                                path = _write_missing(d, missing, subdir="incomplete")
+                                print(f"  {len(missing)} contract numbers are missing from the sequence; "
+                                      f"first few: {', '.join(missing[:5])}  (full list: {path})")
                 else:
                     bad_streak = 0
                     summary = aggregate_by_broker(result.rows)
                     amount = total_amount(result.rows)
+                    shares = total_quantity(result.rows)
                     print(f"  {len(result.rows):,} trades / {result.pages_read} pages -> "
-                          f"{len(summary):,} broker-symbol rows, turnover Rs {amount:,.0f}")
+                          f"{len(summary):,} broker-symbol rows")
+                    print(f"  turnover Rs {amount:,.2f}, {shares:,} shares")
+                    if result.recovery_passes:
+                        print(f"  (needed {result.recovery_passes} re-read pass(es) to collect everything)")
+
+                    missing_rows = 0
+                    if result.complete and result.expected_rows is not None:
+                        print(f"  verified: matches the site's own count of {result.expected_rows:,} trades"
+                              + (f" ({result.dupes} duplicate rows dropped)" if result.dupes else ""))
+                    elif accepted_short:
+                        missing_rows = result.shortfall
+                        pct = 100 * missing_rows / result.expected_rows
+                        print(f"  ACCEPTED SHORT: {missing_rows} of {result.expected_rows:,} trades missing "
+                              f"({pct:.3f}%), within --tolerance. Recorded in floorsheet_ingest_log.")
+                        if result.short_pages:
+                            print("  pages that stayed short: " + ", ".join(
+                                f"p{n}:{got}/{want}" for n, got, want in result.short_pages[:10]))
+                        missing = find_missing_contracts(result.rows)
+                        if missing:
+                            print(f"  missing contract numbers ({len(missing)} found): "
+                                  f"{', '.join(missing[:8])}{' ...' if len(missing) > 8 else ''}")
+                            if not args.dry_run:
+                                _write_missing(d, missing)
+                    else:
+                        print(f"  WARNING: {result.note}")
 
                     if not args.dry_run:
                         if not args.no_raw:
                             _write_raw(d, result.rows)
                         from database.save_floorsheet import save_day
-                        save_day(d, summary, len(result.rows), result.pages_read, amount)
+                        save_day(d, summary, len(result.rows), result.pages_read, amount,
+                                 expected_rows=result.expected_rows, missing_rows=missing_rows)
                         saved += 1
                         print("  saved.")
 

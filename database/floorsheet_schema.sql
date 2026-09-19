@@ -31,3 +31,8 @@ create table if not exists floorsheet_ingest_log (
     total_amount  numeric(22,2),
     completed_at  timestamptz   not null default now()
 );
+
+-- Added later: how many trades the site said the day had, and how many we could not collect.
+-- (missing_rows = 0 for a fully verified day.) Safe to run repeatedly.
+alter table floorsheet_ingest_log add column if not exists expected_rows integer;
+alter table floorsheet_ingest_log add column if not exists missing_rows  integer not null default 0;

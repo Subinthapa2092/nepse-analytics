@@ -54,7 +54,8 @@ def get_done_dates() -> set[date]:
 
 
 def save_day(trade_date: date, summary_rows: list[dict], trade_rows: int,
-             pages: int, total_amount: float) -> None:
+             pages: int, total_amount: float,
+             expected_rows: int | None = None, missing_rows: int = 0) -> None:
     """Replace this day's broker summary and mark the day complete, atomically."""
     values = [
         (
@@ -83,15 +84,18 @@ def save_day(trade_date: date, summary_rows: list[dict], trade_rows: int,
             )
             cur.execute(
                 """
-                insert into floorsheet_ingest_log (trade_date, trade_rows, pages, total_amount)
-                values (%s, %s, %s, %s)
+                insert into floorsheet_ingest_log
+                    (trade_date, trade_rows, pages, total_amount, expected_rows, missing_rows)
+                values (%s, %s, %s, %s, %s, %s)
                 on conflict (trade_date) do update
                     set trade_rows = excluded.trade_rows,
                         pages = excluded.pages,
                         total_amount = excluded.total_amount,
+                        expected_rows = excluded.expected_rows,
+                        missing_rows = excluded.missing_rows,
                         completed_at = now()
                 """,
-                (trade_date, trade_rows, pages, total_amount),
+                (trade_date, trade_rows, pages, total_amount, expected_rows, missing_rows),
             )
     finally:
         conn.close()
