@@ -1,0 +1,29 @@
+name: Daily Floorsheet
+
+on:
+  schedule:
+    # 11:30 UTC = 5:15 PM Nepal time, Mon-Fri (NEPSE has traded Mon-Fri since April 2026).
+    # Runs after the price fetch (10:30 UTC) because dates come from daily_prices.
+    - cron: '30 11 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  floorsheet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Scrape latest floorsheets
+        run: python -m scraper.floorsheet.backfill --days 3 --no-raw
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
