@@ -232,6 +232,29 @@ def _read_pager_info(page) -> tuple[int | None, int | None]:
     )
 
 
+def _wait_for_requested_date(page, trade_date: date, timeout_s: float = 15.0) -> bool:
+    """
+    Rows on screen aren't necessarily OURS: right after clicking Search the page can still
+    show a previous view (e.g. the latest day). Only continue once the first trade's number
+    carries the date we asked for. On a market holiday this never happens, which is how we
+    tell "holiday" from "slow page".
+    """
+    if not CHECK_TXN_DATE:
+        return True
+    want = trade_date.strftime("%Y%m%d")
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        txn = _first_txn(page)
+        if txn:
+            m = re.match(r"(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", txn)
+            if not m:
+                return True  # numbering isn't date-like; the check can't apply
+            if "".join(m.groups()) == want:
+                return True
+        time.sleep(0.3)
+    return False
+
+
 def _wait_for_pager_info(page, timeout_s: float = 20.0) -> tuple[int | None, int | None]:
     """The pager text renders a moment AFTER the first table row, so poll for it."""
     deadline = time.time() + timeout_s
@@ -345,26 +368,43 @@ class FloorsheetSession:
     def fetch(self, trade_date: date, max_pages: int | None = None) -> FloorsheetResult:
         """One attempt, plus one retry if the page never showed usable data (a slow or
         half-loaded page looks the same as a holiday, so give it a second chance)."""
-        result = self._fetch_once(trade_date, max_pages)
+        result = self._attempt(trade_date, max_pages)
         if not result.rows or result.total_pages is None:
             print(f"    ({result.note or 'no data'}) -- retrying once")
             time.sleep(3)
-            retry = self._fetch_once(trade_date, max_pages)
+            retry = self._attempt(trade_date, max_pages)
             if retry.rows or not result.rows:
                 result = retry
         return result
+
+    def _attempt(self, trade_date: date, max_pages: int | None = None) -> FloorsheetResult:
+        try:
+            return self._fetch_once(trade_date, max_pages)
+        except DateMismatch:
+            raise
+        except Exception as e:
+            reason = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+            return FloorsheetResult(trade_date, [], 0, None, False, f"error: {reason}")
 
     def _fetch_once(self, trade_date: date, max_pages: int | None = None) -> FloorsheetResult:
         context = self._browser.new_context(user_agent=USER_AGENT)
         page = context.new_page()
         page.set_default_timeout(30000)
         try:
-            page.goto(URL, timeout=30000)
+            # 'load' also waits for every third-party script on the page (ads, analytics), which
+            # can hang for minutes. We only need the form, so wait for that instead.
+            page.goto(URL, timeout=60000, wait_until="domcontentloaded")
+            page.wait_for_selector(f"#{DATE_INPUT_ID}", timeout=45000)
             page.fill(f"#{DATE_INPUT_ID}", trade_date.strftime(DATE_FORMAT))
             page.click(f"#{SEARCH_BUTTON_ID}")
 
             if not _wait_for_rows(page):
                 return FloorsheetResult(trade_date, [], 0, None, False, "no rows returned")
+            if not _wait_for_requested_date(page, trade_date):
+                shown = (_first_txn(page) or "")[:8]
+                return FloorsheetResult(trade_date, [], 0, None, False,
+                                        f"page still shows {shown}, not {trade_date:%Y%m%d} "
+                                        f"(market holiday, or wrong date format)")
 
             total_pages, expected = _wait_for_pager_info(page)
             page_size = _guess_page_size(total_pages, expected)
