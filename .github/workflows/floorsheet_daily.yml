@@ -3,8 +3,6 @@ name: Daily Floorsheet
 on:
   schedule:
     # 09:16 UTC = 3:01 PM Nepal time (UTC+5:45), Mon-Fri. The market closes at 3:00 PM.
-    # GitHub cron is always UTC, so this line is what pins the Nepal time.
-    # Note: GitHub can start scheduled runs a few minutes late when it is busy.
     - cron: '16 9 * * 1-5'
   workflow_dispatch:
 
@@ -16,22 +14,15 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           playwright install --with-deps chromium
-
-      # At 3:01 PM today's prices are not in daily_prices yet, so name today's
-      # date (Nepal calendar date) explicitly instead of reading it from there.
       - name: Scrape today's floorsheet
         run: python -m scraper.floorsheet.backfill --dates "$(TZ=Asia/Kathmandu date +%F)" --no-raw
-
-      # Safety net: if a previous day failed or wasn't ready, pick it up now.
       - name: Catch up any missed days
         if: always()
         run: python -m scraper.floorsheet.backfill --days 3 --no-raw
