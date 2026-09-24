@@ -272,7 +272,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>nepse-analytics — chart</title>
-<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root{
     --bg:#0B0E11;
@@ -284,6 +284,8 @@
     --gain:#2FBF71;
     --loss:#E5484D;
     --ma:#F0B90B;
+    --accent:#3B82F6;
+    --band:#8B5CF6;
   }
   *{box-sizing:border-box;}
   body{
@@ -330,6 +332,53 @@
   }
   button:hover{opacity:0.9;}
 
+  /* --- toolbars --- */
+  #toolbar, #indicatorBar{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:10px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  #toolbar .tool-label, #indicatorBar .tool-label{
+    color:var(--muted); font-size:12px; margin-right:6px;
+  }
+  .tool-btn{
+    background:var(--panel);
+    color:var(--ink);
+    border:1px solid var(--line);
+    padding:7px 12px;
+    border-radius:6px;
+    font-size:13px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  .tool-btn:hover{border-color:var(--accent);}
+  .tool-btn.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:white;
+  }
+  .tool-btn.danger:hover{border-color:var(--loss);}
+  #toolHint{
+    color:var(--muted);
+    font-size:12px;
+    margin-left:4px;
+  }
+  .chk-label{
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:7px 12px;
+    border-radius:6px;
+    font-size:13px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .chk-label input{ accent-color: var(--accent); }
+  .chk-label.on{ border-color:var(--accent); }
+
   #meta{
     padding:16px 24px 0;
     display:flex;
@@ -349,6 +398,13 @@
   #meta .ma-legend::before{
     content:""; display:inline-block; width:12px; height:2px; background:var(--ma);
   }
+  #meta .band-legend{
+    display:flex; align-items:center; gap:6px;
+    color:var(--muted); font-size:12px;
+  }
+  #meta .band-legend::before{
+    content:""; display:inline-block; width:12px; height:8px; background:rgba(139,92,246,0.35); border:1px solid var(--band);
+  }
 
   #chart-container{
     padding:16px 24px 24px;
@@ -363,6 +419,7 @@
     border-bottom:none;
     position:relative;
   }
+  #chart.tool-active{ cursor:crosshair; }
   #volume{
     width:100%;
     height:110px;
@@ -371,9 +428,6 @@
     border-radius:0 0 8px 8px;
   }
 
-  /* Crosshair OHLC tooltip. Positioned absolutely inside #chart, moved via JS
-     on every crosshair-move event. display:none by default so it never shows
-     a stale reading before the first hover. */
   #tooltip{
     display:none;
     position:absolute;
@@ -401,6 +455,43 @@
     color:var(--loss);
     font-size:13px;
   }
+
+  #alertsPanel{
+    margin:0 24px 24px;
+    padding:12px 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    display:none;
+  }
+  #alertsPanel.has-alerts{ display:block; }
+  #alertsPanel h4{
+    margin:0 0 8px; font-size:12px; color:var(--muted); font-weight:600;
+    text-transform:uppercase; letter-spacing:.03em;
+  }
+  .alert-row{
+    display:flex; align-items:center; gap:10px;
+    padding:4px 0; font-size:13px;
+  }
+  .alert-row .swatch{ width:10px; height:10px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+  .alert-row .val{ flex:1; }
+  .alert-row button{
+    background:transparent; color:var(--muted); border:1px solid var(--line);
+    padding:2px 8px; font-size:11px; border-radius:4px;
+  }
+  .alert-row button:hover{ color:var(--loss); border-color:var(--loss); }
+
+  #skippedNote{
+    margin:0 24px 24px;
+    padding:10px 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  #skippedNote b{ color:var(--ink); }
 </style>
 </head>
 <body>
@@ -415,10 +506,33 @@
   <select id="symbolInput"></select>
   <button onclick="loadChart()">Load</button>
 </header>
+
+<div id="toolbar">
+  <span class="tool-label">Draw:</span>
+  <button class="tool-btn" id="btn-trendline" onclick="setTool('trendline')">╱ Trend Line</button>
+  <button class="tool-btn" id="btn-rectangle" onclick="setTool('rectangle')">▭ Rectangle</button>
+  <button class="tool-btn" id="btn-vline" onclick="setTool('vline')">| Vertical Line</button>
+  <button class="tool-btn" id="btn-note" onclick="setTool('note')">✎ Note</button>
+  <button class="tool-btn" id="btn-measure" onclick="setTool('measure')">↔ Measure</button>
+  <button class="tool-btn" id="btn-alert" onclick="setTool('alert')">🔔 Price Alert</button>
+  <button class="tool-btn danger" onclick="clearAllDrawings()">🗑 Clear All</button>
+  <span id="toolHint"></span>
+</div>
+
+<div id="indicatorBar">
+  <span class="tool-label">Overlays:</span>
+  <label class="chk-label" id="lbl-boll"><input type="checkbox" id="chk-boll" onchange="toggleBollinger(this.checked)"> Bollinger Bands (20, 2σ)</label>
+  <label class="chk-label" id="lbl-hlc"><input type="checkbox" id="chk-hlc" onchange="toggleHLCBand(this.checked)"> High/Low Band</label>
+  <label class="chk-label" id="lbl-crosshair"><input type="checkbox" id="chk-crosshair" checked onchange="toggleHighlightBar(this.checked)"> Highlight Bar</label>
+  <label class="chk-label" id="lbl-week"><input type="checkbox" id="chk-week" onchange="toggleWeekShading(this.checked)"> Week-Start Shading</label>
+  <label class="chk-label" id="lbl-profile"><input type="checkbox" id="chk-profile" onchange="toggleVolumeProfile(this.checked)"> Volume Profile</label>
+</div>
+
 <div id="meta">
   <span class="sym" id="metaSymbol">—</span>
   <span class="price" id="metaPrice"></span>
   <span class="ma-legend">MA(20)</span>
+  <span class="band-legend" id="bandLegend" style="display:none;">Bollinger</span>
   <span class="status" id="metaStatus">loading…</span>
 </div>
 
@@ -431,69 +545,549 @@
   <div id="volume"></div>
 </div>
 
+<div id="alertsPanel">
+  <h4>Price Alerts</h4>
+  <div id="alertsList"></div>
+</div>
+
+<div id="skippedNote">
+  <b>Not included from the plugin pack, on purpose:</b> heatmap-series, box-whisker, stacked-area/bars, grouped-bars,
+  dual-range-histogram, lollipop, brushable-area, background-shade, overlay-price-scale, pretty-histogram,
+  partial-price-line, accessibility helper. These are built for multi-series comparisons or statistical
+  distributions (e.g. comparing many symbols at once, OHLC distributions across a portfolio) — they don't have a
+  natural fit on a single-symbol candlestick + volume dashboard, so adding them would clutter this view rather than
+  improve it. Rounded-candles-series was also left out: it requires writing a full custom series renderer from
+  scratch, which is real risk-of-bugs work I didn't want to rush. Ask if you want any of these anyway and I'll build them.
+</div>
+
 <script>
 
   const API_BASE = "https://nepse-analytics.onrender.com";
   const MA_PERIOD = 20;
+  const BOLL_PERIOD = 20;
+  const BOLL_K = 2;
 
-  // --- price chart ---
+  /* =========================================================================
+     MINI PLUGIN TOOLKIT
+     Hand-ported from the official lightweight-charts plugin-examples repo
+     (Apache-2.0 / MIT) into plain JS, trimmed to run from one HTML file with
+     no build step. Where a plugin was too large/risky to port faithfully in
+     one pass (delta-tooltip, highlight-bar-crosshair, rounded-candles,
+     volume-profile), the visual idea was reimplemented from scratch instead
+     of transcribing the original — noted inline.
+     ========================================================================= */
+
+  class PluginBase {
+    attached({ chart, series, requestUpdate }) {
+      this._chart = chart;
+      this._series = series;
+      this._requestUpdate = requestUpdate;
+    }
+    detached() {
+      this._chart = undefined;
+      this._series = undefined;
+      this._requestUpdate = undefined;
+    }
+    get chart() { return this._chart; }
+    get series() { return this._series; }
+    requestUpdate() { if (this._requestUpdate) this._requestUpdate(); }
+  }
+
+  // --- Trend line (ported: trend-line.ts) ---
+  class TrendLinePaneRenderer {
+    constructor(p1, p2, options) { this._p1 = p1; this._p2 = p2; this._options = options; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        if (this._p1.x === null || this._p1.y === null || this._p2.x === null || this._p2.y === null) return;
+        const ctx = scope.context;
+        const x1 = Math.round(this._p1.x * scope.horizontalPixelRatio);
+        const y1 = Math.round(this._p1.y * scope.verticalPixelRatio);
+        const x2 = Math.round(this._p2.x * scope.horizontalPixelRatio);
+        const y2 = Math.round(this._p2.y * scope.verticalPixelRatio);
+        ctx.lineWidth = this._options.width;
+        ctx.strokeStyle = this._options.color;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.fillStyle = this._options.color;
+        [[x1, y1], [x2, y2]].forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, 4 * scope.horizontalPixelRatio, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      });
+    }
+  }
+  class TrendLinePaneView {
+    constructor(source) { this._source = source; this._p1 = { x: null, y: null }; this._p2 = { x: null, y: null }; }
+    update() {
+      const s = this._source;
+      const y1 = s.series.priceToCoordinate(s.p1.price);
+      const y2 = s.series.priceToCoordinate(s.p2.price);
+      const ts = s.chart.timeScale();
+      const x1 = ts.timeToCoordinate(s.p1.time);
+      const x2 = ts.timeToCoordinate(s.p2.time);
+      this._p1 = { x: x1, y: y1 };
+      this._p2 = { x: x2, y: y2 };
+    }
+    renderer() { return new TrendLinePaneRenderer(this._p1, this._p2, this._source.options); }
+  }
+  class TrendLine extends PluginBase {
+    constructor(p1, p2, options) {
+      super();
+      this.p1 = p1; this.p2 = p2;
+      this.options = Object.assign({ color: '#3B82F6', width: 2 }, options);
+      this._paneViews = [new TrendLinePaneView(this)];
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Rectangle (ported: rectangle-drawing-tool.ts, simplified — no drag handles) ---
+  class RectanglePaneRenderer {
+    constructor(p1, p2, options) { this._p1 = p1; this._p2 = p2; this._options = options; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        if (this._p1.x === null || this._p1.y === null || this._p2.x === null || this._p2.y === null) return;
+        const ctx = scope.context;
+        const x1 = Math.round(Math.min(this._p1.x, this._p2.x) * scope.horizontalPixelRatio);
+        const x2 = Math.round(Math.max(this._p1.x, this._p2.x) * scope.horizontalPixelRatio);
+        const y1 = Math.round(Math.min(this._p1.y, this._p2.y) * scope.verticalPixelRatio);
+        const y2 = Math.round(Math.max(this._p1.y, this._p2.y) * scope.verticalPixelRatio);
+        ctx.fillStyle = this._options.fillColor;
+        ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.lineWidth = this._options.borderWidth;
+        ctx.strokeStyle = this._options.borderColor;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      });
+    }
+  }
+  class RectanglePaneView {
+    constructor(source) { this._source = source; this._p1 = { x: null, y: null }; this._p2 = { x: null, y: null }; }
+    update() {
+      const s = this._source;
+      const y1 = s.series.priceToCoordinate(s.p1.price);
+      const y2 = s.series.priceToCoordinate(s.p2.price);
+      const ts = s.chart.timeScale();
+      const x1 = ts.timeToCoordinate(s.p1.time);
+      const x2 = ts.timeToCoordinate(s.p2.time);
+      this._p1 = { x: x1, y: y1 };
+      this._p2 = { x: x2, y: y2 };
+    }
+    renderer() { return new RectanglePaneRenderer(this._p1, this._p2, this._source.options); }
+  }
+  class Rectangle extends PluginBase {
+    constructor(p1, p2, options) {
+      super();
+      this.p1 = p1; this.p2 = p2;
+      this.options = Object.assign({
+        fillColor: 'rgba(59,130,246,0.15)',
+        borderColor: '#3B82F6',
+        borderWidth: 1,
+      }, options);
+      this._paneViews = [new RectanglePaneView(this)];
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Vertical line (adapted: vertical-line, simplified — no badge/drag options) ---
+  class VerticalLinePaneRenderer {
+    constructor(x, label, options) { this._x = x; this._label = label; this._options = options; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        if (this._x === null) return;
+        const ctx = scope.context;
+        const x = Math.round(this._x * scope.horizontalPixelRatio);
+        ctx.save();
+        ctx.strokeStyle = this._options.color;
+        ctx.lineWidth = this._options.width;
+        ctx.setLineDash([4 * scope.horizontalPixelRatio, 4 * scope.horizontalPixelRatio]);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, scope.bitmapSize.height);
+        ctx.stroke();
+        ctx.restore();
+        if (this._label) {
+          ctx.font = `${12 * scope.verticalPixelRatio}px sans-serif`;
+          const padX = 6 * scope.horizontalPixelRatio;
+          const w = ctx.measureText(this._label).width + padX * 2;
+          ctx.fillStyle = this._options.color;
+          ctx.fillRect(x + 4 * scope.horizontalPixelRatio, 4 * scope.verticalPixelRatio, w, 18 * scope.verticalPixelRatio);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(this._label, x + 4 * scope.horizontalPixelRatio + padX, 17 * scope.verticalPixelRatio);
+        }
+      });
+    }
+  }
+  class VerticalLinePaneView {
+    constructor(source) { this._source = source; this._x = null; }
+    update() { this._x = this._source.chart.timeScale().timeToCoordinate(this._source.time); }
+    renderer() { return new VerticalLinePaneRenderer(this._x, this._source.label, this._source.options); }
+  }
+  class VerticalLine extends PluginBase {
+    constructor(time, label, options) {
+      super();
+      this.time = time; this.label = label || '';
+      this.options = Object.assign({ color: '#F0B90B', width: 1 }, options);
+      this._paneViews = [new VerticalLinePaneView(this)];
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Point note (reimplemented, inspired by anchored-text.ts — anchored to a
+  //     data point instead of a fixed pane corner) ---
+  class PointNotePaneRenderer {
+    constructor(x, y, text) { this._x = x; this._y = y; this._text = text; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        if (this._x === null || this._y === null) return;
+        const ctx = scope.context;
+        const x = this._x * scope.horizontalPixelRatio;
+        const y = this._y * scope.verticalPixelRatio;
+        ctx.fillStyle = '#F0B90B';
+        ctx.beginPath();
+        ctx.arc(x, y, 4 * scope.horizontalPixelRatio, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${12 * scope.verticalPixelRatio}px sans-serif`;
+        const padX = 6 * scope.horizontalPixelRatio, padY = 4 * scope.verticalPixelRatio;
+        const w = ctx.measureText(this._text).width;
+        const boxX = x + 8 * scope.horizontalPixelRatio, boxY = y - 12 * scope.verticalPixelRatio;
+        ctx.fillStyle = 'rgba(18,22,28,0.92)';
+        ctx.strokeStyle = '#232A33';
+        ctx.fillRect(boxX, boxY - 10 * scope.verticalPixelRatio, w + padX * 2, 20 * scope.verticalPixelRatio);
+        ctx.strokeRect(boxX, boxY - 10 * scope.verticalPixelRatio, w + padX * 2, 20 * scope.verticalPixelRatio);
+        ctx.fillStyle = '#E8E6DE';
+        ctx.fillText(this._text, boxX + padX, boxY + 4 * scope.verticalPixelRatio);
+      });
+    }
+  }
+  class PointNotePaneView {
+    constructor(source) { this._source = source; this._x = null; this._y = null; }
+    update() {
+      const s = this._source;
+      this._x = s.chart.timeScale().timeToCoordinate(s.time);
+      this._y = s.series.priceToCoordinate(s.price);
+    }
+    renderer() { return new PointNotePaneRenderer(this._x, this._y, this._source.text); }
+  }
+  class PointNote extends PluginBase {
+    constructor(time, price, text) {
+      super();
+      this.time = time; this.price = price; this.text = text;
+      this._paneViews = [new PointNotePaneView(this)];
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Measure tool (reimplemented, same intent as delta-tooltip.ts: click two
+  //     points, read off the price/percent change and bar count between them —
+  //     rewritten from scratch rather than porting its ~1000-line original,
+  //     which also handles multi-touch and a persistent floating tooltip) ---
+  class MeasurePaneRenderer {
+    constructor(p1, p2, label, up) { this._p1 = p1; this._p2 = p2; this._label = label; this._up = up; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        if (this._p1.x === null || this._p2.x === null) return;
+        const ctx = scope.context;
+        const color = this._up ? '#2FBF71' : '#E5484D';
+        const x1 = this._p1.x * scope.horizontalPixelRatio, y1 = this._p1.y * scope.verticalPixelRatio;
+        const x2 = this._p2.x * scope.horizontalPixelRatio, y2 = this._p2.y * scope.verticalPixelRatio;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6 * scope.horizontalPixelRatio, 4 * scope.horizontalPixelRatio]);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.setLineDash([]);
+        const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
+        ctx.font = `bold ${13 * scope.verticalPixelRatio}px sans-serif`;
+        const w = ctx.measureText(this._label).width;
+        const padX = 8 * scope.horizontalPixelRatio, padY = 6 * scope.verticalPixelRatio;
+        ctx.fillStyle = color;
+        ctx.fillRect(midX - w / 2 - padX, midY - 11 * scope.verticalPixelRatio, w + padX * 2, 22 * scope.verticalPixelRatio);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(this._label, midX - w / 2, midY + 4 * scope.verticalPixelRatio);
+      });
+    }
+  }
+  class MeasurePaneView {
+    constructor(source) { this._source = source; this._p1 = { x: null, y: null }; this._p2 = { x: null, y: null }; }
+    update() {
+      const s = this._source;
+      this._p1 = { x: s.chart.timeScale().timeToCoordinate(s.p1.time), y: s.series.priceToCoordinate(s.p1.price) };
+      this._p2 = { x: s.chart.timeScale().timeToCoordinate(s.p2.time), y: s.series.priceToCoordinate(s.p2.price) };
+    }
+    renderer() { return new MeasurePaneRenderer(this._p1, this._p2, this._source.label, this._source.up); }
+  }
+  class MeasureTool extends PluginBase {
+    constructor(p1, p2, barCount) {
+      super();
+      this.p1 = p1; this.p2 = p2;
+      this.up = p2.price >= p1.price;
+      const pct = ((p2.price - p1.price) / p1.price) * 100;
+      this.label = `${this.up ? '+' : ''}${pct.toFixed(2)}%  (${barCount} bars)`;
+      this._paneViews = [new MeasurePaneView(this)];
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Session highlighting (ported: session-highlighting.ts. The original
+  //     colors intraday sessions; since this chart uses daily bars there are
+  //     no intraday sessions to color, so the highlighter function is adapted
+  //     to shade the first trading bar of each ISO week instead.) ---
+  class SessionHighlightingPaneRenderer {
+    constructor(data) { this._viewData = data; }
+    draw(target) {
+      const points = this._viewData.data;
+      target.useBitmapCoordinateSpace(scope => {
+        const ctx = scope.context;
+        const height = scope.bitmapSize.height;
+        const halfWidth = (scope.horizontalPixelRatio * this._viewData.barWidth) / 2;
+        const cutOff = -1 * (halfWidth + 1);
+        const maxX = scope.bitmapSize.width;
+        points.forEach(point => {
+          const xScaled = point.x * scope.horizontalPixelRatio;
+          if (xScaled < cutOff) return;
+          ctx.fillStyle = point.color || 'rgba(0,0,0,0)';
+          const x1 = Math.max(0, Math.round(xScaled - halfWidth));
+          const x2 = Math.min(maxX, Math.round(xScaled + halfWidth));
+          ctx.fillRect(x1, 0, x2 - x1, height);
+        });
+      });
+    }
+  }
+  class SessionHighlightingPaneView {
+    constructor(source) { this._source = source; this._data = { data: [], barWidth: 6 }; }
+    update() {
+      const ts = this._source.chart.timeScale();
+      this._data.data = this._source._backgroundColors.map(d => ({ x: ts.timeToCoordinate(d.time) ?? -100, color: d.color }));
+      this._data.barWidth = this._data.data.length > 1 ? (this._data.data[1].x - this._data.data[0].x) : 6;
+    }
+    renderer() { return new SessionHighlightingPaneRenderer(this._data); }
+    zOrder() { return 'bottom'; }
+  }
+  class SessionHighlighting extends PluginBase {
+    constructor(highlighter) {
+      super();
+      this._highlighter = highlighter;
+      this._backgroundColors = [];
+      this._paneViews = [new SessionHighlightingPaneView(this)];
+    }
+    setData(bars) {
+      this._backgroundColors = bars.map(d => ({ time: d.time, color: this._highlighter(d) }));
+      this.requestUpdate();
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Bands indicator / Bollinger Bands (ported: bands-indicator.ts, values
+  //     computed client-side as SMA ± k·stddev over BOLL_PERIOD bars) ---
+  class BandsPaneRenderer {
+    constructor(data, options) { this._data = data; this._options = options; }
+    draw() {}
+    drawBackground(target) {
+      const points = this._data;
+      if (points.length < 2) return;
+      target.useBitmapCoordinateSpace(scope => {
+        const ctx = scope.context;
+        ctx.save();
+        ctx.scale(scope.horizontalPixelRatio, scope.verticalPixelRatio);
+        const region = new Path2D();
+        region.moveTo(points[0].x, points[0].upper);
+        for (const p of points) region.lineTo(p.x, p.upper);
+        const end = points.length - 1;
+        for (let i = end; i >= 0; i--) region.lineTo(points[i].x, points[i].lower);
+        region.closePath();
+        ctx.fillStyle = this._options.fillColor;
+        ctx.fill(region);
+        ctx.strokeStyle = this._options.lineColor;
+        ctx.lineWidth = this._options.lineWidth;
+        const upperLine = new Path2D();
+        upperLine.moveTo(points[0].x, points[0].upper);
+        for (const p of points) upperLine.lineTo(p.x, p.upper);
+        ctx.stroke(upperLine);
+        const lowerLine = new Path2D();
+        lowerLine.moveTo(points[0].x, points[0].lower);
+        for (const p of points) lowerLine.lineTo(p.x, p.lower);
+        ctx.stroke(lowerLine);
+        ctx.restore();
+      });
+    }
+  }
+  class BandsPaneView {
+    constructor(source) { this._source = source; this._data = []; }
+    update() {
+      const ts = this._source.chart.timeScale();
+      this._data = this._source._bands.map(b => {
+        const x = ts.timeToCoordinate(b.time);
+        const upper = this._source.series.priceToCoordinate(b.upper);
+        const lower = this._source.series.priceToCoordinate(b.lower);
+        return { x: x ?? -1000, upper: upper ?? 0, lower: lower ?? 0 };
+      }).filter(p => p.x !== -1000);
+    }
+    renderer() { return new BandsPaneRenderer(this._data, this._source.options); }
+    zOrder() { return 'bottom'; }
+  }
+  class BandsIndicator extends PluginBase {
+    constructor(options) {
+      super();
+      this.options = Object.assign({
+        lineColor: 'rgba(139,92,246,0.7)', lineWidth: 1, fillColor: 'rgba(139,92,246,0.12)',
+      }, options);
+      this._bands = [];
+      this._paneViews = [new BandsPaneView(this)];
+    }
+    setData(bands) { this._bands = bands; this.requestUpdate(); }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- High/Low band overlay (reuses the same band-fill technique as
+  //     BandsIndicator above, fed with each bar's high/low instead of a
+  //     computed indicator — the same idea hlc-area-series expresses as a
+  //     dedicated custom series type; kept as an overlay here for simplicity) ---
+  function makeHLCBand() {
+    return new BandsIndicator({ lineColor: 'rgba(124,133,144,0.5)', fillColor: 'rgba(124,133,144,0.10)' });
+  }
+
+  // --- Highlight bar crosshair (reimplemented from scratch — same visual
+  //     idea as highlight-bar-crosshair.ts: a soft full-height column under
+  //     the hovered bar — not a line-by-line port of the original, which also
+  //     tracks per-series hit-testing across multiple series) ---
+  class HighlightBarPaneRenderer {
+    constructor(x, barWidth) { this._x = x; this._barWidth = barWidth; }
+    draw(target) {
+      if (this._x === null) return;
+      target.useBitmapCoordinateSpace(scope => {
+        const ctx = scope.context;
+        const halfW = (this._barWidth * scope.horizontalPixelRatio) / 2;
+        const x = this._x * scope.horizontalPixelRatio;
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(x - halfW, 0, halfW * 2, scope.bitmapSize.height);
+      });
+    }
+  }
+  class HighlightBarPaneView {
+    constructor(source) { this._source = source; this._x = null; }
+    update() { this._x = this._source.time === null ? null : this._source.chart.timeScale().timeToCoordinate(this._source.time); }
+    renderer() { return new HighlightBarPaneRenderer(this._x, this._source.barWidth); }
+    zOrder() { return 'bottom'; }
+  }
+  class HighlightBarCrosshair extends PluginBase {
+    constructor() {
+      super();
+      this.time = null;
+      this.barWidth = 6;
+      this._paneViews = [new HighlightBarPaneView(this)];
+    }
+    setHover(time) { this.time = time; this.requestUpdate(); }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  // --- Volume profile (reimplemented from scratch — same concept as
+  //     volume-profile: a horizontal histogram of traded volume by price
+  //     level, drawn along the right edge of the pane; simplified to fixed
+  //     bins over the loaded date range rather than a movable/resizable box) ---
+  class VolumeProfilePaneRenderer {
+    constructor(bars, maxVol, options) { this._bars = bars; this._maxVol = maxVol; this._options = options; }
+    draw(target) {
+      target.useBitmapCoordinateSpace(scope => {
+        const ctx = scope.context;
+        const maxBarPx = 90 * scope.horizontalPixelRatio;
+        const rightEdge = scope.bitmapSize.width;
+        ctx.fillStyle = this._options.color;
+        this._bars.forEach(b => {
+          if (b.y1 === null || b.y2 === null) return;
+          const w = this._maxVol > 0 ? (b.vol / this._maxVol) * maxBarPx : 0;
+          const y1 = Math.min(b.y1, b.y2) * scope.verticalPixelRatio;
+          const y2 = Math.max(b.y1, b.y2) * scope.verticalPixelRatio;
+          ctx.fillRect(rightEdge - w, y1, w, Math.max(1, y2 - y1));
+        });
+      });
+    }
+  }
+  class VolumeProfilePaneView {
+    constructor(source) { this._source = source; this._bars = []; }
+    update() {
+      const s = this._source;
+      this._bars = s._bins.map(bin => ({
+        y1: s.series.priceToCoordinate(bin.priceLow),
+        y2: s.series.priceToCoordinate(bin.priceHigh),
+        vol: bin.vol,
+      }));
+    }
+    renderer() { return new VolumeProfilePaneRenderer(this._bars, this._source._maxVol, this._source.options); }
+  }
+  class VolumeProfile extends PluginBase {
+    constructor(options) {
+      super();
+      this.options = Object.assign({ color: 'rgba(59,130,246,0.25)' }, options);
+      this._bins = [];
+      this._maxVol = 0;
+      this._paneViews = [new VolumeProfilePaneView(this)];
+    }
+    setData(bars, binCount = 24) {
+      if (!bars.length) { this._bins = []; this._maxVol = 0; this.requestUpdate(); return; }
+      const low = Math.min(...bars.map(b => b.low));
+      const high = Math.max(...bars.map(b => b.high));
+      const step = (high - low) / binCount || 1;
+      const bins = Array.from({ length: binCount }, (_, i) => ({
+        priceLow: low + i * step, priceHigh: low + (i + 1) * step, vol: 0,
+      }));
+      bars.forEach(b => {
+        const mid = (b.high + b.low) / 2;
+        let idx = Math.floor((mid - low) / step);
+        if (idx < 0) idx = 0; if (idx >= binCount) idx = binCount - 1;
+        bins[idx].vol += (b.qty || 0);
+      });
+      this._bins = bins;
+      this._maxVol = Math.max(...bins.map(b => b.vol), 0);
+      this.requestUpdate();
+    }
+    updateAllViews() { this._paneViews.forEach(v => v.update()); }
+    paneViews() { return this._paneViews; }
+  }
+
+  /* ========================================================================= */
+
   const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-    layout: {
-      background: { color: '#12161C' },
-      textColor: '#E8E6DE',
-    },
-    grid: {
-      vertLines: { color: '#232A33' },
-      horzLines: { color: '#232A33' },
-    },
+    layout: { background: { color: '#12161C' }, textColor: '#E8E6DE' },
+    grid: { vertLines: { color: '#232A33' }, horzLines: { color: '#232A33' } },
     rightPriceScale: { borderColor: '#232A33' },
-    // Time axis is now shown (was `visible: false` before) so you can
-    // actually read the date under each candle.
     timeScale: { borderColor: '#232A33', visible: true, timeVisible: false },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
   });
 
-  const candleSeries = chart.addCandlestickSeries({
-    upColor: '#2FBF71',
-    downColor: '#E5484D',
-    borderVisible: false,
-    wickUpColor: '#2FBF71',
-    wickDownColor: '#E5484D',
+  const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+    upColor: '#2FBF71', downColor: '#E5484D', borderVisible: false,
+    wickUpColor: '#2FBF71', wickDownColor: '#E5484D',
   });
 
-  // 20-day moving average overlay, on the same price scale as the candles.
-  const maSeries = chart.addLineSeries({
-    color: '#F0B90B',
-    lineWidth: 2,
-    priceLineVisible: false,
-    lastValueVisible: false,
-    crosshairMarkerVisible: false,
+  const maSeries = chart.addSeries(LightweightCharts.LineSeries, {
+    color: '#F0B90B', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
   });
 
-  // --- volume chart (separate pane, synced) ---
+  const mainPane = chart.panes()[0];
+  const watermark = LightweightCharts.createTextWatermark(mainPane, {
+    horzAlign: 'center', vertAlign: 'center',
+    lines: [{ text: '', color: 'rgba(255,255,255,0.06)', fontSize: 72, fontStyle: 'bold' }],
+  });
+
   const volumeChart = LightweightCharts.createChart(document.getElementById('volume'), {
-    layout: {
-      background: { color: '#12161C' },
-      textColor: '#7C8590',
-    },
-    grid: {
-      vertLines: { color: '#232A33' },
-      horzLines: { color: '#232A33' },
-    },
+    layout: { background: { color: '#12161C' }, textColor: '#7C8590' },
+    grid: { vertLines: { color: '#232A33' }, horzLines: { color: '#232A33' } },
     rightPriceScale: { borderColor: '#232A33' },
     timeScale: { borderColor: '#232A33' },
   });
+  const volumeSeries = volumeChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, color: '#2FBF71' });
 
-  const volumeSeries = volumeChart.addHistogramSeries({
-    priceFormat: { type: 'volume' },
-    color: '#2FBF71',
-  });
-
-  // sync the two timescales together (scroll/zoom in one moves the other)
   function syncTimeScales(source, target) {
-    source.timeScale().subscribeVisibleLogicalRangeChange(range => {
-      if (range) target.timeScale().setVisibleLogicalRange(range);
-    });
+    source.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) target.timeScale().setVisibleLogicalRange(range); });
   }
   syncTimeScales(chart, volumeChart);
   syncTimeScales(volumeChart, chart);
@@ -506,17 +1100,99 @@
   }
   window.addEventListener('resize', resizeCharts);
 
-  // --- crosshair tooltip: shows date + OHLC for whichever candle the mouse is over ---
   const tooltipEl = document.getElementById('tooltip');
-  let currentBars = new Map(); // time -> {open,high,low,close}, rebuilt each loadChart()
-  let currentPriceLine = null; // tracked so it's removed before adding a new one on symbol switch
+  let currentBars = new Map();
+  let currentBarsArr = [];
+  let currentPriceLine = null;
 
   function fmtDate(time) {
-    // `time` from the API is expected as 'YYYY-MM-DD' (business day string),
-    // which is what candleSeries.setData() was already being given.
     if (typeof time === 'string') return time;
     if (time && time.year) return `${time.year}-${String(time.month).padStart(2,'0')}-${String(time.day).padStart(2,'0')}`;
     return '';
+  }
+
+  // --- indicator instances (created once, attached/detached on toggle) ---
+  const bollinger = new BandsIndicator({});
+  const hlcBand = makeHLCBand();
+  const highlightBar = new HighlightBarCrosshair();
+  const volumeProfile = new VolumeProfile({});
+  let sessionHighlighting = null; // recreated per-symbol since highlighter reads bar list
+
+  candleSeries.attachPrimitive(highlightBar); // always on by default
+
+  const state = { boll: false, hlc: false, week: false, profile: false };
+
+  function toggleBollinger(on) {
+    state.boll = on;
+    document.getElementById('lbl-boll').classList.toggle('on', on);
+    document.getElementById('bandLegend').style.display = on ? 'flex' : 'none';
+    if (on) { candleSeries.attachPrimitive(bollinger); recomputeBollinger(); }
+    else candleSeries.detachPrimitive(bollinger);
+  }
+  function toggleHLCBand(on) {
+    state.hlc = on;
+    document.getElementById('lbl-hlc').classList.toggle('on', on);
+    if (on) { candleSeries.attachPrimitive(hlcBand); recomputeHLCBand(); }
+    else candleSeries.detachPrimitive(hlcBand);
+  }
+  function toggleHighlightBar(on) {
+    document.getElementById('lbl-crosshair').classList.toggle('on', on);
+    if (on) candleSeries.attachPrimitive(highlightBar);
+    else candleSeries.detachPrimitive(highlightBar);
+  }
+  function toggleWeekShading(on) {
+    state.week = on;
+    document.getElementById('lbl-week').classList.toggle('on', on);
+    if (on) { attachSessionHighlighting(); }
+    else if (sessionHighlighting) { candleSeries.detachPrimitive(sessionHighlighting); }
+  }
+  function toggleVolumeProfile(on) {
+    state.profile = on;
+    document.getElementById('lbl-profile').classList.toggle('on', on);
+    if (on) { candleSeries.attachPrimitive(volumeProfile); volumeProfile.setData(currentBarsArr); }
+    else candleSeries.detachPrimitive(volumeProfile);
+  }
+  window.toggleBollinger = toggleBollinger;
+  window.toggleHLCBand = toggleHLCBand;
+  window.toggleHighlightBar = toggleHighlightBar;
+  window.toggleWeekShading = toggleWeekShading;
+  window.toggleVolumeProfile = toggleVolumeProfile;
+
+  function attachSessionHighlighting() {
+    if (sessionHighlighting) candleSeries.detachPrimitive(sessionHighlighting);
+    sessionHighlighting = new SessionHighlighting(bar => {
+      const d = new Date(fmtDate(bar.time) + 'T00:00:00Z');
+      return d.getUTCDay() === 1 ? 'rgba(240,185,11,0.06)' : 'rgba(0,0,0,0)'; // Monday = week start
+    });
+    candleSeries.attachPrimitive(sessionHighlighting);
+    sessionHighlighting.setData(currentBarsArr);
+  }
+
+  function computeSMA(bars, period) {
+    const out = [];
+    let sum = 0;
+    for (let i = 0; i < bars.length; i++) {
+      sum += bars[i].close;
+      if (i >= period) sum -= bars[i - period].close;
+      if (i >= period - 1) out.push({ time: bars[i].time, value: sum / period });
+    }
+    return out;
+  }
+
+  function recomputeBollinger() {
+    const bars = currentBarsArr;
+    const bands = [];
+    for (let i = BOLL_PERIOD - 1; i < bars.length; i++) {
+      const slice = bars.slice(i - BOLL_PERIOD + 1, i + 1).map(b => b.close);
+      const mean = slice.reduce((a, b) => a + b, 0) / BOLL_PERIOD;
+      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / BOLL_PERIOD;
+      const sd = Math.sqrt(variance);
+      bands.push({ time: bars[i].time, upper: mean + BOLL_K * sd, lower: mean - BOLL_K * sd });
+    }
+    bollinger.setData(bands);
+  }
+  function recomputeHLCBand() {
+    hlcBand.setData(currentBarsArr.map(b => ({ time: b.time, upper: b.high, lower: b.low })));
   }
 
   chart.subscribeCrosshairMove(param => {
@@ -524,8 +1200,10 @@
     if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0
         || param.point.x > chartEl.clientWidth || param.point.y > chartEl.clientHeight) {
       tooltipEl.style.display = 'none';
+      highlightBar.setHover(null);
       return;
     }
+    highlightBar.setHover(param.time);
     const bar = currentBars.get(fmtDate(param.time));
     if (!bar) { tooltipEl.style.display = 'none'; return; }
 
@@ -538,8 +1216,6 @@
       `<span>C</span> <span class="${dir}">${bar.close.toFixed(2)}</span></div>`;
     tooltipEl.style.display = 'block';
 
-    // Keep the tooltip on-screen: flip to the left of the cursor once we're
-    // past the right edge, instead of letting it run off the chart.
     const tw = tooltipEl.offsetWidth;
     let left = param.point.x + 14;
     if (left + tw > chartEl.clientWidth) left = param.point.x - tw - 14;
@@ -547,39 +1223,154 @@
     tooltipEl.style.top = `${Math.max(8, param.point.y - 10)}px`;
   });
 
-  // --- simple moving average, computed client-side from the same OHLC data
-  //     the candles already use -- no extra API call needed. ---
-  function computeSMA(bars, period) {
-    const out = [];
-    let sum = 0;
-    for (let i = 0; i < bars.length; i++) {
-      sum += bars[i].close;
-      if (i >= period) sum -= bars[i - period].close;
-      if (i >= period - 1) out.push({ time: bars[i].time, value: sum / period });
+  /* ===================== Drawing tools state & interaction ===================== */
+
+  let activeTool = null;
+  let pendingPoint = null;
+  let pendingBarIndex = null;
+  const drawings = [];
+  const alerts = [];
+  const toolHintEl = document.getElementById('toolHint');
+  const chartEl = document.getElementById('chart');
+
+  const toolHints = {
+    trendline: 'Click a start point, then an end point.',
+    rectangle: 'Click one corner, then the opposite corner.',
+    vline: 'Click anywhere on the chart to place the line.',
+    note: 'Click a point on the chart, then type your note.',
+    measure: 'Click a start point, then an end point to measure change.',
+    alert: 'Click a price level to set an alert.',
+  };
+
+  function setTool(tool) {
+    activeTool = (activeTool === tool) ? null : tool;
+    pendingPoint = null;
+    pendingBarIndex = null;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    if (activeTool) {
+      document.getElementById('btn-' + activeTool).classList.add('active');
+      toolHintEl.textContent = toolHints[activeTool];
+      chartEl.classList.add('tool-active');
+    } else {
+      toolHintEl.textContent = '';
+      chartEl.classList.remove('tool-active');
     }
-    return out;
   }
 
-  // --- populate symbol dropdown from your own API ---
+  function clearAllDrawings() {
+    drawings.forEach(d => candleSeries.detachPrimitive(d.primitive));
+    drawings.length = 0;
+    alerts.forEach(a => candleSeries.removePriceLine(a.priceLine));
+    alerts.length = 0;
+    renderAlertsList();
+  }
+
+  function renderAlertsList() {
+    const panel = document.getElementById('alertsPanel');
+    const list = document.getElementById('alertsList');
+    if (alerts.length === 0) { panel.classList.remove('has-alerts'); list.innerHTML = ''; return; }
+    panel.classList.add('has-alerts');
+    list.innerHTML = alerts.map((a, i) =>
+      `<div class="alert-row"><span class="swatch"></span>` +
+      `<span class="val">Alert at ${a.price.toFixed(2)}</span>` +
+      `<button onclick="removeAlert(${i})">Remove</button></div>`
+    ).join('');
+  }
+  function removeAlert(i) {
+    candleSeries.removePriceLine(alerts[i].priceLine);
+    alerts.splice(i, 1);
+    renderAlertsList();
+  }
+  window.removeAlert = removeAlert;
+  window.setTool = setTool;
+  window.clearAllDrawings = clearAllDrawings;
+
+  chart.subscribeClick(param => {
+    if (!activeTool || !param.point || !param.time) return;
+    const price = candleSeries.coordinateToPrice(param.point.y);
+    if (price === null) return;
+    const time = param.time;
+
+    if (activeTool === 'vline') {
+      const vline = new VerticalLine(time, fmtDate(time));
+      candleSeries.attachPrimitive(vline);
+      drawings.push({ primitive: vline });
+      return;
+    }
+
+    if (activeTool === 'note') {
+      const text = window.prompt('Note text:', '');
+      if (text) {
+        const note = new PointNote(time, price, text);
+        candleSeries.attachPrimitive(note);
+        drawings.push({ primitive: note });
+      }
+      return;
+    }
+
+    if (activeTool === 'alert') {
+      const priceLine = candleSeries.createPriceLine({
+        price: price, color: '#3B82F6', lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Alert',
+      });
+      alerts.push({ priceLine, price });
+      renderAlertsList();
+      return;
+    }
+
+    if (activeTool === 'trendline' || activeTool === 'rectangle') {
+      if (!pendingPoint) {
+        pendingPoint = { time, price };
+        toolHintEl.textContent = 'Now click the second point…';
+      } else {
+        const p1 = pendingPoint, p2 = { time, price };
+        pendingPoint = null;
+        toolHintEl.textContent = toolHints[activeTool];
+        if (activeTool === 'trendline') {
+          const tl = new TrendLine(p1, p2, {});
+          candleSeries.attachPrimitive(tl);
+          drawings.push({ primitive: tl });
+        } else {
+          const rect = new Rectangle(p1, p2, {});
+          candleSeries.attachPrimitive(rect);
+          drawings.push({ primitive: rect });
+        }
+      }
+      return;
+    }
+
+    if (activeTool === 'measure') {
+      const idx = currentBarsArr.findIndex(b => fmtDate(b.time) === fmtDate(time));
+      if (!pendingPoint) {
+        pendingPoint = { time, price };
+        pendingBarIndex = idx;
+        toolHintEl.textContent = 'Now click the end point…';
+      } else {
+        const p1 = pendingPoint, p2 = { time, price };
+        const barCount = Math.abs(idx - pendingBarIndex);
+        pendingPoint = null; pendingBarIndex = null;
+        toolHintEl.textContent = toolHints[activeTool];
+        const m = new MeasureTool(p1, p2, barCount);
+        candleSeries.attachPrimitive(m);
+        drawings.push({ primitive: m });
+      }
+    }
+  });
+
+  /* ===================== Data loading ===================== */
+
   async function loadSymbolList() {
     const res = await fetch(`${API_BASE}/prices`);
     const data = await res.json();
     const select = document.getElementById('symbolInput');
-    data
-      .map(row => row.symbol)
-      .sort()
-      .forEach(sym => {
-        const opt = document.createElement('option');
-        opt.value = sym;
-        opt.textContent = sym;
-        select.appendChild(opt);
-      });
-    if ([...select.options].some(o => o.value === "ACLBSL")) {
-      select.value = "ACLBSL";
-    }
+    data.map(row => row.symbol).sort().forEach(sym => {
+      const opt = document.createElement('option');
+      opt.value = sym; opt.textContent = sym;
+      select.appendChild(opt);
+    });
+    if ([...select.options].some(o => o.value === "ACLBSL")) select.value = "ACLBSL";
   }
 
-  // --- load OHLC + volume for the selected symbol (single fetch, used for both) ---
   async function loadChart() {
     const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
     const errorBox = document.getElementById('error');
@@ -595,29 +1386,26 @@
 
     try {
       const res = await fetch(`${API_BASE}/prices/${symbol}/history`);
-      if (!res.ok) {
-        throw new Error(`No data found for "${symbol}" (status ${res.status})`);
-      }
+      if (!res.ok) throw new Error(`No data found for "${symbol}" (status ${res.status})`);
       const data = await res.json();
 
       candleSeries.setData(data);
+      watermark.applyOptions({ lines: [{ text: symbol, color: 'rgba(255,255,255,0.06)', fontSize: 72, fontStyle: 'bold' }] });
 
-      // Keyed by the same date-string form fmtDate() produces, so the lookup
-      // in subscribeCrosshairMove (which also runs param.time through
-      // fmtDate()) matches regardless of whether the library hands back a
-      // plain string or its internal {year,month,day} object -- it does the
-      // latter once data has been set, even if a string was passed in.
       currentBars = new Map(data.map(d => [fmtDate(d.time), d]));
+      currentBarsArr = data;
 
       const maData = computeSMA(data, MA_PERIOD);
       maSeries.setData(maData);
 
-      const volumeBars = data.map(d => ({
-        time: d.time,
-        value: d.qty || 0,
-        color: d.close >= d.open ? '#2FBF71' : '#E5484D',
-      }));
+      const volumeBars = data.map(d => ({ time: d.time, value: d.qty || 0, color: d.close >= d.open ? '#2FBF71' : '#E5484D' }));
       volumeSeries.setData(volumeBars);
+
+      // refresh any active overlays for the new symbol's data
+      if (state.boll) recomputeBollinger();
+      if (state.hlc) recomputeHLCBand();
+      if (state.week) attachSessionHighlighting();
+      if (state.profile) volumeProfile.setData(currentBarsArr);
 
       chart.timeScale().fitContent();
       volumeChart.timeScale().fitContent();
@@ -626,19 +1414,10 @@
       const prev = data.length > 1 ? data[data.length - 2] : null;
       priceEl.textContent = latest.close.toFixed(2);
 
-      // Dashed current-price line across the chart, same as TradingView's default.
-      // Remove the previous symbol's line first -- without this, every symbol
-      // switch would leave another dashed line stacked on the chart forever.
-      if (currentPriceLine) {
-        candleSeries.removePriceLine(currentPriceLine);
-      }
+      if (currentPriceLine) candleSeries.removePriceLine(currentPriceLine);
       currentPriceLine = candleSeries.createPriceLine({
-        price: latest.close,
-        color: '#7C8590',
-        lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: '',
+        price: latest.close, color: '#7C8590', lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '',
       });
 
       if (prev) {
@@ -654,6 +1433,7 @@
       statusEl.textContent = 'failed to load';
     }
   }
+  window.loadChart = loadChart;
 
   document.getElementById('symbolInput').addEventListener('change', loadChart);
 
