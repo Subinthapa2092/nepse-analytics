@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -243,6 +243,403 @@
       const latest = data[data.length - 1];
       const prev = data.length > 1 ? data[data.length - 2] : null;
       priceEl.textContent = latest.close.toFixed(2);
+
+      if (prev) {
+        const change = ((latest.close - prev.close) / prev.close) * 100;
+        priceEl.className = 'price ' + (change >= 0 ? 'up' : 'down');
+        priceEl.textContent += ` (${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%)`;
+      }
+
+      statusEl.textContent = `${data.length} day${data.length === 1 ? '' : 's'} of history`;
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.style.display = 'block';
+      statusEl.textContent = 'failed to load';
+    }
+  }
+
+  document.getElementById('symbolInput').addEventListener('change', loadChart);
+
+  resizeCharts();
+  loadSymbolList().then(loadChart);
+</script>
+
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nepse-analytics — chart</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161C;
+    --line:#232A33;
+    --ink:#E8E6DE;
+    --muted:#7C8590;
+    --crimson:#C8382E;
+    --gain:#2FBF71;
+    --loss:#E5484D;
+    --ma:#F0B90B;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Segoe UI', sans-serif;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{
+    font-weight:600;
+    font-size:15px;
+    margin-right:auto;
+  }
+  .brand::before{content:"● "; color:var(--crimson);}
+
+  select{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:14px;
+    width:160px;
+  }
+  select:focus{outline:none; border-color:var(--crimson);}
+
+  button{
+    background:var(--crimson);
+    color:white;
+    border:none;
+    padding:8px 16px;
+    border-radius:6px;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button:hover{opacity:0.9;}
+
+  #meta{
+    padding:16px 24px 0;
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  #meta .sym{font-size:20px; font-weight:600;}
+  #meta .price{font-size:18px;}
+  #meta .price.up{color:var(--gain);}
+  #meta .price.down{color:var(--loss);}
+  #meta .status{color:var(--muted); font-size:13px;}
+  #meta .ma-legend{
+    display:flex; align-items:center; gap:6px;
+    color:var(--muted); font-size:12px;
+  }
+  #meta .ma-legend::before{
+    content:""; display:inline-block; width:12px; height:2px; background:var(--ma);
+  }
+
+  #chart-container{
+    padding:16px 24px 24px;
+    position:relative;
+  }
+  #chart{
+    width:100%;
+    height:420px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px 8px 0 0;
+    border-bottom:none;
+    position:relative;
+  }
+  #volume{
+    width:100%;
+    height:110px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:0 0 8px 8px;
+  }
+
+  /* Crosshair OHLC tooltip. Positioned absolutely inside #chart, moved via JS
+     on every crosshair-move event. display:none by default so it never shows
+     a stale reading before the first hover. */
+  #tooltip{
+    display:none;
+    position:absolute;
+    z-index:20;
+    pointer-events:none;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--ink);
+    white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,0.4);
+  }
+  #tooltip .date{color:var(--muted); margin-bottom:2px;}
+  #tooltip .row{display:flex; gap:8px;}
+  #tooltip .row span{color:var(--muted);}
+  #tooltip .up{color:var(--gain);}
+  #tooltip .down{color:var(--loss);}
+
+  #error{
+    display:none;
+    padding:0 24px 16px;
+    color:var(--loss);
+    font-size:13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">nepse-analytics</div>
+  <nav style="margin-right:auto; display:flex; gap:6px;">
+  <a href="index.html" style="color:var(--ink); background:var(--panel); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px;">Chart</a>
+  <a href="screener.html" style="color:var(--muted); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px;">Screener</a>
+  <a href="heatmap.html" style="color:var(--muted); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px;">Heatmap</a>
+</nav>
+  <select id="symbolInput"></select>
+  <button onclick="loadChart()">Load</button>
+</header>
+<div id="meta">
+  <span class="sym" id="metaSymbol">—</span>
+  <span class="price" id="metaPrice"></span>
+  <span class="ma-legend">MA(20)</span>
+  <span class="status" id="metaStatus">loading…</span>
+</div>
+
+<div id="error"></div>
+
+<div id="chart-container">
+  <div id="chart">
+    <div id="tooltip"></div>
+  </div>
+  <div id="volume"></div>
+</div>
+
+<script>
+
+  const API_BASE = "https://nepse-analytics.onrender.com";
+  const MA_PERIOD = 20;
+
+  // --- price chart ---
+  const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    layout: {
+      background: { color: '#12161C' },
+      textColor: '#E8E6DE',
+    },
+    grid: {
+      vertLines: { color: '#232A33' },
+      horzLines: { color: '#232A33' },
+    },
+    rightPriceScale: { borderColor: '#232A33' },
+    // Time axis is now shown (was `visible: false` before) so you can
+    // actually read the date under each candle.
+    timeScale: { borderColor: '#232A33', visible: true, timeVisible: false },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#2FBF71',
+    downColor: '#E5484D',
+    borderVisible: false,
+    wickUpColor: '#2FBF71',
+    wickDownColor: '#E5484D',
+  });
+
+  // 20-day moving average overlay, on the same price scale as the candles.
+  const maSeries = chart.addLineSeries({
+    color: '#F0B90B',
+    lineWidth: 2,
+    priceLineVisible: false,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+  });
+
+  // --- volume chart (separate pane, synced) ---
+  const volumeChart = LightweightCharts.createChart(document.getElementById('volume'), {
+    layout: {
+      background: { color: '#12161C' },
+      textColor: '#7C8590',
+    },
+    grid: {
+      vertLines: { color: '#232A33' },
+      horzLines: { color: '#232A33' },
+    },
+    rightPriceScale: { borderColor: '#232A33' },
+    timeScale: { borderColor: '#232A33' },
+  });
+
+  const volumeSeries = volumeChart.addHistogramSeries({
+    priceFormat: { type: 'volume' },
+    color: '#2FBF71',
+  });
+
+  // sync the two timescales together (scroll/zoom in one moves the other)
+  function syncTimeScales(source, target) {
+    source.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) target.timeScale().setVisibleLogicalRange(range);
+    });
+  }
+  syncTimeScales(chart, volumeChart);
+  syncTimeScales(volumeChart, chart);
+
+  function resizeCharts() {
+    const chartEl = document.getElementById('chart');
+    const volEl = document.getElementById('volume');
+    chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight });
+    volumeChart.applyOptions({ width: volEl.clientWidth, height: volEl.clientHeight });
+  }
+  window.addEventListener('resize', resizeCharts);
+
+  // --- crosshair tooltip: shows date + OHLC for whichever candle the mouse is over ---
+  const tooltipEl = document.getElementById('tooltip');
+  let currentBars = new Map(); // time -> {open,high,low,close}, rebuilt each loadChart()
+  let currentPriceLine = null; // tracked so it's removed before adding a new one on symbol switch
+
+  function fmtDate(time) {
+    // `time` from the API is expected as 'YYYY-MM-DD' (business day string),
+    // which is what candleSeries.setData() was already being given.
+    if (typeof time === 'string') return time;
+    if (time && time.year) return `${time.year}-${String(time.month).padStart(2,'0')}-${String(time.day).padStart(2,'0')}`;
+    return '';
+  }
+
+  chart.subscribeCrosshairMove(param => {
+    const chartEl = document.getElementById('chart');
+    if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0
+        || param.point.x > chartEl.clientWidth || param.point.y > chartEl.clientHeight) {
+      tooltipEl.style.display = 'none';
+      return;
+    }
+    const bar = currentBars.get(fmtDate(param.time));
+    if (!bar) { tooltipEl.style.display = 'none'; return; }
+
+    const dir = bar.close >= bar.open ? 'up' : 'down';
+    tooltipEl.innerHTML =
+      `<div class="date">${fmtDate(param.time)}</div>` +
+      `<div class="row"><span>O</span> ${bar.open.toFixed(2)} ` +
+      `<span>H</span> ${bar.high.toFixed(2)} ` +
+      `<span>L</span> ${bar.low.toFixed(2)} ` +
+      `<span>C</span> <span class="${dir}">${bar.close.toFixed(2)}</span></div>`;
+    tooltipEl.style.display = 'block';
+
+    // Keep the tooltip on-screen: flip to the left of the cursor once we're
+    // past the right edge, instead of letting it run off the chart.
+    const tw = tooltipEl.offsetWidth;
+    let left = param.point.x + 14;
+    if (left + tw > chartEl.clientWidth) left = param.point.x - tw - 14;
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${Math.max(8, param.point.y - 10)}px`;
+  });
+
+  // --- simple moving average, computed client-side from the same OHLC data
+  //     the candles already use -- no extra API call needed. ---
+  function computeSMA(bars, period) {
+    const out = [];
+    let sum = 0;
+    for (let i = 0; i < bars.length; i++) {
+      sum += bars[i].close;
+      if (i >= period) sum -= bars[i - period].close;
+      if (i >= period - 1) out.push({ time: bars[i].time, value: sum / period });
+    }
+    return out;
+  }
+
+  // --- populate symbol dropdown from your own API ---
+  async function loadSymbolList() {
+    const res = await fetch(`${API_BASE}/prices`);
+    const data = await res.json();
+    const select = document.getElementById('symbolInput');
+    data
+      .map(row => row.symbol)
+      .sort()
+      .forEach(sym => {
+        const opt = document.createElement('option');
+        opt.value = sym;
+        opt.textContent = sym;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === "ACLBSL")) {
+      select.value = "ACLBSL";
+    }
+  }
+
+  // --- load OHLC + volume for the selected symbol (single fetch, used for both) ---
+  async function loadChart() {
+    const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
+    const errorBox = document.getElementById('error');
+    const statusEl = document.getElementById('metaStatus');
+    const symbolEl = document.getElementById('metaSymbol');
+    const priceEl = document.getElementById('metaPrice');
+
+    errorBox.style.display = 'none';
+    statusEl.textContent = 'loading…';
+    symbolEl.textContent = symbol;
+    priceEl.textContent = '';
+    tooltipEl.style.display = 'none';
+
+    try {
+      const res = await fetch(`${API_BASE}/prices/${symbol}/history`);
+      if (!res.ok) {
+        throw new Error(`No data found for "${symbol}" (status ${res.status})`);
+      }
+      const data = await res.json();
+
+      candleSeries.setData(data);
+
+      // Keyed by the same date-string form fmtDate() produces, so the lookup
+      // in subscribeCrosshairMove (which also runs param.time through
+      // fmtDate()) matches regardless of whether the library hands back a
+      // plain string or its internal {year,month,day} object -- it does the
+      // latter once data has been set, even if a string was passed in.
+      currentBars = new Map(data.map(d => [fmtDate(d.time), d]));
+
+      const maData = computeSMA(data, MA_PERIOD);
+      maSeries.setData(maData);
+
+      const volumeBars = data.map(d => ({
+        time: d.time,
+        value: d.qty || 0,
+        color: d.close >= d.open ? '#2FBF71' : '#E5484D',
+      }));
+      volumeSeries.setData(volumeBars);
+
+      chart.timeScale().fitContent();
+      volumeChart.timeScale().fitContent();
+
+      const latest = data[data.length - 1];
+      const prev = data.length > 1 ? data[data.length - 2] : null;
+      priceEl.textContent = latest.close.toFixed(2);
+
+      // Dashed current-price line across the chart, same as TradingView's default.
+      // Remove the previous symbol's line first -- without this, every symbol
+      // switch would leave another dashed line stacked on the chart forever.
+      if (currentPriceLine) {
+        candleSeries.removePriceLine(currentPriceLine);
+      }
+      currentPriceLine = candleSeries.createPriceLine({
+        price: latest.close,
+        color: '#7C8590',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '',
+      });
 
       if (prev) {
         const change = ((latest.close - prev.close) / prev.close) * 100;
