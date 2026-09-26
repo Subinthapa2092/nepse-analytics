@@ -492,6 +492,56 @@
     line-height:1.6;
   }
   #skippedNote b{ color:var(--ink); }
+
+  /* --- VWAP settings modal --- */
+  #vwapModalOverlay{
+    display:none;
+    position:fixed; inset:0; z-index:50;
+    background:rgba(0,0,0,0.5);
+    align-items:center; justify-content:center;
+  }
+  #vwapModalOverlay.open{ display:flex; }
+  #vwapModal{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    width:380px;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:18px 20px;
+  }
+  #vwapModal h3{ margin:0 0 12px; font-size:16px; }
+  .vwap-tabs{ display:flex; gap:16px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+  .vwap-tab{
+    background:none; border:none; color:var(--muted); padding:6px 0;
+    font-size:13px; cursor:pointer; border-bottom:2px solid transparent;
+  }
+  .vwap-tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
+  .vwap-pane{ display:none; }
+  .vwap-pane.active{ display:block; }
+  .vwap-field{ margin-bottom:12px; }
+  .vwap-field label{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .vwap-field select, .vwap-field input[type=number]{
+    width:100%; background:#0B0E11; border:1px solid var(--line); color:var(--ink);
+    padding:7px 9px; border-radius:6px; font-size:13px;
+  }
+  .vwap-section-title{
+    font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em;
+    margin:16px 0 8px; padding-top:10px; border-top:1px solid var(--line);
+  }
+  .vwap-band-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .vwap-band-row input[type=checkbox]{ accent-color:var(--accent); }
+  .vwap-band-row input[type=number]{
+    width:56px; background:#0B0E11; border:1px solid var(--line); color:var(--ink);
+    padding:5px 7px; border-radius:5px; font-size:12px;
+  }
+  .vwap-band-row input[type=color]{
+    width:28px; height:28px; border:none; background:none; padding:0; cursor:pointer;
+  }
+  .vwap-band-row span.blabel{ flex:1; font-size:13px; }
+  .vwap-modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .vwap-modal-actions button{ padding:7px 14px; font-size:13px; }
+  .vwap-btn-secondary{ background:var(--line) !important; }
 </style>
 </head>
 <body>
@@ -521,14 +571,10 @@
 
 <div id="indicatorBar">
   <span class="tool-label">Overlays:</span>
+  <label class="chk-label" id="lbl-ma"><input type="checkbox" id="chk-ma" onchange="toggleMA(this.checked)"> MA(20)</label>
   <label class="chk-label" id="lbl-boll"><input type="checkbox" id="chk-boll" onchange="toggleBollinger(this.checked)"> Bollinger Bands (20, 2σ)</label>
   <label class="chk-label" id="lbl-vwap"><input type="checkbox" id="chk-vwap" onchange="toggleVWAP(this.checked)"> VWAP</label>
-  <select id="vwapAnchor" onchange="onVwapAnchorChange(this.value)" style="width:110px; padding:6px 8px; font-size:12px;">
-    <option value="Week">Anchor: Week</option>
-    <option value="Month" selected>Anchor: Month</option>
-    <option value="Quarter">Anchor: Quarter</option>
-    <option value="Year">Anchor: Year</option>
-  </select>
+  <button class="tool-btn" onclick="openVwapSettings()" title="VWAP settings">⚙</button>
   <label class="chk-label" id="lbl-hlc"><input type="checkbox" id="chk-hlc" onchange="toggleHLCBand(this.checked)"> High/Low Band</label>
   <label class="chk-label" id="lbl-crosshair"><input type="checkbox" id="chk-crosshair" checked onchange="toggleHighlightBar(this.checked)"> Highlight Bar</label>
   <label class="chk-label" id="lbl-week"><input type="checkbox" id="chk-week" onchange="toggleWeekShading(this.checked)"> Week-Start Shading</label>
@@ -538,7 +584,6 @@
 <div id="meta">
   <span class="sym" id="metaSymbol">—</span>
   <span class="price" id="metaPrice"></span>
-  <span class="ma-legend">MA(20)</span>
   <span class="band-legend" id="bandLegend" style="display:none;">Bollinger</span>
   <span class="band-legend" id="vwapLegend" style="display:none;">VWAP</span>
   <span class="status" id="metaStatus">loading…</span>
@@ -556,6 +601,98 @@
 <div id="alertsPanel">
   <h4>Price Alerts</h4>
   <div id="alertsList"></div>
+</div>
+
+<div id="vwapModalOverlay" onclick="if(event.target===this) closeVwapSettings()">
+  <div id="vwapModal">
+    <h3>VWAP Settings</h3>
+    <div class="vwap-tabs">
+      <button class="vwap-tab active" id="vwtab-inputs" onclick="switchVwapTab('inputs')">Inputs</button>
+      <button class="vwap-tab" id="vwtab-style" onclick="switchVwapTab('style')">Style</button>
+    </div>
+
+    <div class="vwap-pane active" id="vwpane-inputs">
+      <div class="vwap-field">
+        <label>Anchor Period</label>
+        <select id="vwInAnchor">
+          <option value="Session">Session (1 bar — not meaningful on daily data, kept for parity)</option>
+          <option value="Week">Week</option>
+          <option value="Month" selected>Month</option>
+          <option value="Quarter">Quarter</option>
+          <option value="Year">Year</option>
+          <option value="Decade">Decade</option>
+          <option value="Century">Century</option>
+        </select>
+      </div>
+      <div class="vwap-field">
+        <label>Source</label>
+        <select id="vwInSource">
+          <option value="hlc3" selected>(H + L + C) / 3</option>
+          <option value="close">Close</option>
+          <option value="hl2">(H + L) / 2</option>
+          <option value="ohlc4">(O + H + L + C) / 4</option>
+        </select>
+      </div>
+      <div class="vwap-field">
+        <label>Offset (bars)</label>
+        <input type="number" id="vwInOffset" value="0" step="1">
+      </div>
+
+      <div class="vwap-section-title">Bands</div>
+      <div class="vwap-field">
+        <label>Bands Calculation Mode</label>
+        <select id="vwInCalcMode">
+          <option value="stdev" selected>Standard Deviation</option>
+          <option value="percent">Percentage</option>
+        </select>
+      </div>
+      <div class="vwap-band-row">
+        <input type="checkbox" id="vwInB1On" checked>
+        <span class="blabel">Bands Multiplier #1</span>
+        <input type="number" id="vwInB1Mult" value="1" step="0.5">
+      </div>
+      <div class="vwap-band-row">
+        <input type="checkbox" id="vwInB2On">
+        <span class="blabel">Bands Multiplier #2</span>
+        <input type="number" id="vwInB2Mult" value="2" step="0.5">
+      </div>
+      <div class="vwap-band-row">
+        <input type="checkbox" id="vwInB3On">
+        <span class="blabel">Bands Multiplier #3</span>
+        <input type="number" id="vwInB3Mult" value="3" step="0.5">
+      </div>
+    </div>
+
+    <div class="vwap-pane" id="vwpane-style">
+      <div class="vwap-band-row">
+        <input type="color" id="vwStLineColor" value="#2962ff">
+        <span class="blabel">VWAP line</span>
+      </div>
+      <div class="vwap-section-title">Band #1</div>
+      <div class="vwap-band-row">
+        <input type="color" id="vwStB1Color" value="#2e8b57">
+        <span class="blabel">Line + fill color</span>
+        <input type="checkbox" id="vwStB1Fill" checked title="Fill band">
+      </div>
+      <div class="vwap-section-title">Band #2</div>
+      <div class="vwap-band-row">
+        <input type="color" id="vwStB2Color" value="#808000">
+        <span class="blabel">Line + fill color</span>
+        <input type="checkbox" id="vwStB2Fill" checked title="Fill band">
+      </div>
+      <div class="vwap-section-title">Band #3</div>
+      <div class="vwap-band-row">
+        <input type="color" id="vwStB3Color" value="#008080">
+        <span class="blabel">Line + fill color</span>
+        <input type="checkbox" id="vwStB3Fill" checked title="Fill band">
+      </div>
+    </div>
+
+    <div class="vwap-modal-actions">
+      <button class="vwap-btn-secondary" onclick="closeVwapSettings()">Cancel</button>
+      <button onclick="applyVwapSettings()">Ok</button>
+    </div>
+  </div>
 </div>
 
 <div id="skippedNote">
@@ -973,6 +1110,9 @@
   function vwapPeriodKey(dateStr, anchor) {
     const d = new Date(dateStr + 'T00:00:00Z');
     const y = d.getUTCFullYear();
+    if (anchor === 'Session') return dateStr; // resets every bar — degenerate on daily data, kept for parity
+    if (anchor === 'Century') return `${Math.floor(y / 100)}`;
+    if (anchor === 'Decade') return `${Math.floor(y / 10)}`;
     if (anchor === 'Year') return `${y}`;
     if (anchor === 'Quarter') return `${y}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
     if (anchor === 'Month') return `${y}-${d.getUTCMonth()}`;
@@ -987,25 +1127,70 @@
     return `${y}-W${week}`;
   }
 
-  function computeVWAP(bars, anchor, mult) {
+  const vwapConfig = {
+    anchor: 'Month',
+    source: 'hlc3',
+    offset: 0,
+    calcMode: 'stdev', // 'stdev' | 'percent'
+    bands: [
+      { enabled: true, mult: 1, color: '#2e8b57', fill: true },
+      { enabled: false, mult: 2, color: '#808000', fill: true },
+      { enabled: false, mult: 3, color: '#008080', fill: true },
+    ],
+    lineColor: '#2962ff',
+  };
+
+  function sourcePrice(b, source) {
+    if (source === 'close') return b.close;
+    if (source === 'hl2') return (b.high + b.low) / 2;
+    if (source === 'ohlc4') return (b.open + b.high + b.low + b.close) / 4;
+    return (b.high + b.low + b.close) / 3; // hlc3
+  }
+
+  function computeVWAPMulti(bars, config) {
     let cumPV = 0, cumV = 0, cumPV2 = 0, lastKey = null;
-    const vwapLine = [], band = [];
+    const vwapLine = [];
+    const bandsRaw = []; // per-bar { time, vwap, stdev }
     for (const b of bars) {
-      const key = vwapPeriodKey(fmtDate(b.time), anchor);
+      const key = vwapPeriodKey(fmtDate(b.time), config.anchor);
       if (key !== lastKey) { cumPV = 0; cumV = 0; cumPV2 = 0; lastKey = key; }
-      const typicalPrice = (b.high + b.low + b.close) / 3;
+      const price = sourcePrice(b, config.source);
       const vol = b.qty || 0;
-      cumPV += typicalPrice * vol;
+      cumPV += price * vol;
       cumV += vol;
-      cumPV2 += typicalPrice * typicalPrice * vol;
+      cumPV2 += price * price * vol;
       if (cumV === 0) continue;
       const vwap = cumPV / cumV;
       const variance = Math.max(0, cumPV2 / cumV - vwap * vwap);
       const stdev = Math.sqrt(variance);
       vwapLine.push({ time: b.time, value: vwap });
-      band.push({ time: b.time, upper: vwap + stdev * mult, lower: vwap - stdev * mult });
+      bandsRaw.push({ time: b.time, vwap, stdev });
     }
-    return { vwapLine, band };
+
+    // apply offset: shift plotted points along the existing time axis by N bars
+    const times = bars.map(b => b.time);
+    function applyOffset(points) {
+      if (!config.offset) return points;
+      const timeIndex = new Map(times.map((t, i) => [fmtDate(t), i]));
+      return points.map(p => {
+        const idx = timeIndex.get(fmtDate(p.time));
+        const shiftedIdx = idx + config.offset;
+        if (shiftedIdx < 0 || shiftedIdx >= times.length) return null;
+        return Object.assign({}, p, { time: times[shiftedIdx] });
+      }).filter(Boolean);
+    }
+
+    const bandsOut = config.bands.map(bandCfg => {
+      if (!bandCfg.enabled) return null;
+      const basis = bandsRaw.map(r => ({
+        time: r.time,
+        upper: r.vwap + (config.calcMode === 'percent' ? r.vwap * 0.01 : r.stdev) * bandCfg.mult,
+        lower: r.vwap - (config.calcMode === 'percent' ? r.vwap * 0.01 : r.stdev) * bandCfg.mult,
+      }));
+      return applyOffset(basis);
+    });
+
+    return { vwapLine: applyOffset(vwapLine), bandsOut };
   }
 
   // --- Highlight bar crosshair (reimplemented from scratch — same visual
@@ -1123,7 +1308,7 @@
   });
 
   const maSeries = chart.addSeries(LightweightCharts.LineSeries, {
-    color: '#F0B90B', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    color: '#F0B90B', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, visible: false,
   });
 
   const mainPane = chart.panes()[0];
@@ -1172,16 +1357,25 @@
     color: '#2962FF', lineWidth: 2, priceLineVisible: false, lastValueVisible: false,
     crosshairMarkerVisible: false, visible: false,
   });
-  const vwapBand = new BandsIndicator({ lineColor: 'rgba(46,139,87,0.6)', fillColor: 'rgba(46,139,87,0.12)' });
-  let vwapAnchor = 'Month';
+  const vwapBands = [
+    new BandsIndicator({ lineColor: 'rgba(46,139,87,0.7)', fillColor: 'rgba(46,139,87,0.12)' }),
+    new BandsIndicator({ lineColor: 'rgba(128,128,0,0.7)', fillColor: 'rgba(128,128,0,0.12)' }),
+    new BandsIndicator({ lineColor: 'rgba(0,128,128,0.7)', fillColor: 'rgba(0,128,128,0.12)' }),
+  ];
   const highlightBar = new HighlightBarCrosshair();
   const volumeProfile = new VolumeProfile({});
   let sessionHighlighting = null; // recreated per-symbol since highlighter reads bar list
 
   candleSeries.attachPrimitive(highlightBar); // always on by default
 
-  const state = { boll: false, hlc: false, week: false, profile: false, vwap: false };
+  const state = { boll: false, hlc: false, week: false, profile: false, vwap: false, ma: false };
 
+  function toggleMA(on) {
+    state.ma = on;
+    document.getElementById('lbl-ma').classList.toggle('on', on);
+    maSeries.applyOptions({ visible: on });
+    if (on) maSeries.setData(computeSMA(currentBarsArr, MA_PERIOD));
+  }
   function toggleBollinger(on) {
     state.boll = on;
     document.getElementById('lbl-boll').classList.toggle('on', on);
@@ -1200,12 +1394,12 @@
     document.getElementById('lbl-vwap').classList.toggle('on', on);
     document.getElementById('vwapLegend').style.display = on ? 'flex' : 'none';
     vwapSeries.applyOptions({ visible: on });
-    if (on) { candleSeries.attachPrimitive(vwapBand); recomputeVWAP(); }
-    else candleSeries.detachPrimitive(vwapBand);
-  }
-  function onVwapAnchorChange(value) {
-    vwapAnchor = value;
-    if (state.vwap) recomputeVWAP();
+    if (on) {
+      vwapConfig.bands.forEach((b, i) => { if (b.enabled) candleSeries.attachPrimitive(vwapBands[i]); });
+      recomputeVWAP();
+    } else {
+      vwapBands.forEach(band => candleSeries.detachPrimitive(band));
+    }
   }
   function toggleHighlightBar(on) {
     document.getElementById('lbl-crosshair').classList.toggle('on', on);
@@ -1224,10 +1418,10 @@
     if (on) { candleSeries.attachPrimitive(volumeProfile); volumeProfile.setData(currentBarsArr); }
     else candleSeries.detachPrimitive(volumeProfile);
   }
+  window.toggleMA = toggleMA;
   window.toggleBollinger = toggleBollinger;
   window.toggleHLCBand = toggleHLCBand;
   window.toggleVWAP = toggleVWAP;
-  window.onVwapAnchorChange = onVwapAnchorChange;
   window.toggleHighlightBar = toggleHighlightBar;
   window.toggleWeekShading = toggleWeekShading;
   window.toggleVolumeProfile = toggleVolumeProfile;
@@ -1269,10 +1463,81 @@
     hlcBand.setData(currentBarsArr.map(b => ({ time: b.time, upper: b.high, lower: b.low })));
   }
   function recomputeVWAP() {
-    const { vwapLine, band } = computeVWAP(currentBarsArr, vwapAnchor, 1);
+    vwapSeries.applyOptions({ color: vwapConfig.lineColor });
+    const { vwapLine, bandsOut } = computeVWAPMulti(currentBarsArr, vwapConfig);
     vwapSeries.setData(vwapLine);
-    vwapBand.setData(band);
+    vwapConfig.bands.forEach((cfg, i) => {
+      const hexToRgba = (hex, a) => {
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), bl = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${bl},${a})`;
+      };
+      vwapBands[i].options.lineColor = hexToRgba(cfg.color, 0.7);
+      vwapBands[i].options.fillColor = cfg.fill ? hexToRgba(cfg.color, 0.12) : 'rgba(0,0,0,0)';
+      if (bandsOut[i]) vwapBands[i].setData(bandsOut[i]);
+    });
   }
+
+  // --- VWAP settings modal ---
+  function openVwapSettings() {
+    document.getElementById('vwInAnchor').value = vwapConfig.anchor;
+    document.getElementById('vwInSource').value = vwapConfig.source;
+    document.getElementById('vwInOffset').value = vwapConfig.offset;
+    document.getElementById('vwInCalcMode').value = vwapConfig.calcMode;
+    document.getElementById('vwInB1On').checked = vwapConfig.bands[0].enabled;
+    document.getElementById('vwInB1Mult').value = vwapConfig.bands[0].mult;
+    document.getElementById('vwInB2On').checked = vwapConfig.bands[1].enabled;
+    document.getElementById('vwInB2Mult').value = vwapConfig.bands[1].mult;
+    document.getElementById('vwInB3On').checked = vwapConfig.bands[2].enabled;
+    document.getElementById('vwInB3Mult').value = vwapConfig.bands[2].mult;
+    document.getElementById('vwStLineColor').value = vwapConfig.lineColor;
+    document.getElementById('vwStB1Color').value = vwapConfig.bands[0].color;
+    document.getElementById('vwStB1Fill').checked = vwapConfig.bands[0].fill;
+    document.getElementById('vwStB2Color').value = vwapConfig.bands[1].color;
+    document.getElementById('vwStB2Fill').checked = vwapConfig.bands[1].fill;
+    document.getElementById('vwStB3Color').value = vwapConfig.bands[2].color;
+    document.getElementById('vwStB3Fill').checked = vwapConfig.bands[2].fill;
+    document.getElementById('vwapModalOverlay').classList.add('open');
+  }
+  function closeVwapSettings() {
+    document.getElementById('vwapModalOverlay').classList.remove('open');
+  }
+  function switchVwapTab(tab) {
+    document.getElementById('vwtab-inputs').classList.toggle('active', tab === 'inputs');
+    document.getElementById('vwtab-style').classList.toggle('active', tab === 'style');
+    document.getElementById('vwpane-inputs').classList.toggle('active', tab === 'inputs');
+    document.getElementById('vwpane-style').classList.toggle('active', tab === 'style');
+  }
+  function applyVwapSettings() {
+    vwapConfig.anchor = document.getElementById('vwInAnchor').value;
+    vwapConfig.source = document.getElementById('vwInSource').value;
+    vwapConfig.offset = parseInt(document.getElementById('vwInOffset').value, 10) || 0;
+    vwapConfig.calcMode = document.getElementById('vwInCalcMode').value;
+    vwapConfig.bands[0].enabled = document.getElementById('vwInB1On').checked;
+    vwapConfig.bands[0].mult = parseFloat(document.getElementById('vwInB1Mult').value) || 1;
+    vwapConfig.bands[1].enabled = document.getElementById('vwInB2On').checked;
+    vwapConfig.bands[1].mult = parseFloat(document.getElementById('vwInB2Mult').value) || 2;
+    vwapConfig.bands[2].enabled = document.getElementById('vwInB3On').checked;
+    vwapConfig.bands[2].mult = parseFloat(document.getElementById('vwInB3Mult').value) || 3;
+    vwapConfig.lineColor = document.getElementById('vwStLineColor').value;
+    vwapConfig.bands[0].color = document.getElementById('vwStB1Color').value;
+    vwapConfig.bands[0].fill = document.getElementById('vwStB1Fill').checked;
+    vwapConfig.bands[1].color = document.getElementById('vwStB2Color').value;
+    vwapConfig.bands[1].fill = document.getElementById('vwStB2Fill').checked;
+    vwapConfig.bands[2].color = document.getElementById('vwStB3Color').value;
+    vwapConfig.bands[2].fill = document.getElementById('vwStB3Fill').checked;
+
+    // re-attach/detach bands based on new enabled state
+    vwapBands.forEach(band => candleSeries.detachPrimitive(band));
+    if (state.vwap) {
+      vwapConfig.bands.forEach((b, i) => { if (b.enabled) candleSeries.attachPrimitive(vwapBands[i]); });
+      recomputeVWAP();
+    }
+    closeVwapSettings();
+  }
+  window.openVwapSettings = openVwapSettings;
+  window.closeVwapSettings = closeVwapSettings;
+  window.switchVwapTab = switchVwapTab;
+  window.applyVwapSettings = applyVwapSettings;
 
   chart.subscribeCrosshairMove(param => {
     const chartEl = document.getElementById('chart');
@@ -1474,13 +1739,11 @@
       currentBars = new Map(data.map(d => [fmtDate(d.time), d]));
       currentBarsArr = data;
 
-      const maData = computeSMA(data, MA_PERIOD);
-      maSeries.setData(maData);
-
       const volumeBars = data.map(d => ({ time: d.time, value: d.qty || 0, color: d.close >= d.open ? '#2FBF71' : '#E5484D' }));
       volumeSeries.setData(volumeBars);
 
       // refresh any active overlays for the new symbol's data
+      if (state.ma) maSeries.setData(computeSMA(data, MA_PERIOD));
       if (state.boll) recomputeBollinger();
       if (state.hlc) recomputeHLCBand();
       if (state.week) attachSessionHighlighting();
