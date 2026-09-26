@@ -53,6 +53,8 @@ create table if not exists archive_manifest (
 
 class ArchiveDB:
     def __init__(self, path: Path | str):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(path))
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)

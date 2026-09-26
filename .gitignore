@@ -14,9 +14,12 @@ __pycache__/
 # data (don't commit scraped data dumps to git)
 *.csv
 *.db
+*.sqlite
 *.sqlite3
 data/raw/
 data/processed/
+data/backfill_progress.json
+data/backfill_completed.json
 
 # node (once frontend exists)
 node_modules/

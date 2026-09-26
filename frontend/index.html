@@ -1,4 +1,4 @@
-<!-- <!DOCTYPE html>
+<!-- <!-- <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -522,6 +522,13 @@
 <div id="indicatorBar">
   <span class="tool-label">Overlays:</span>
   <label class="chk-label" id="lbl-boll"><input type="checkbox" id="chk-boll" onchange="toggleBollinger(this.checked)"> Bollinger Bands (20, 2σ)</label>
+  <label class="chk-label" id="lbl-vwap"><input type="checkbox" id="chk-vwap" onchange="toggleVWAP(this.checked)"> VWAP</label>
+  <select id="vwapAnchor" onchange="onVwapAnchorChange(this.value)" style="width:110px; padding:6px 8px; font-size:12px;">
+    <option value="Week">Anchor: Week</option>
+    <option value="Month" selected>Anchor: Month</option>
+    <option value="Quarter">Anchor: Quarter</option>
+    <option value="Year">Anchor: Year</option>
+  </select>
   <label class="chk-label" id="lbl-hlc"><input type="checkbox" id="chk-hlc" onchange="toggleHLCBand(this.checked)"> High/Low Band</label>
   <label class="chk-label" id="lbl-crosshair"><input type="checkbox" id="chk-crosshair" checked onchange="toggleHighlightBar(this.checked)"> Highlight Bar</label>
   <label class="chk-label" id="lbl-week"><input type="checkbox" id="chk-week" onchange="toggleWeekShading(this.checked)"> Week-Start Shading</label>
@@ -533,6 +540,7 @@
   <span class="price" id="metaPrice"></span>
   <span class="ma-legend">MA(20)</span>
   <span class="band-legend" id="bandLegend" style="display:none;">Bollinger</span>
+  <span class="band-legend" id="vwapLegend" style="display:none;">VWAP</span>
   <span class="status" id="metaStatus">loading…</span>
 </div>
 
@@ -954,6 +962,52 @@
     return new BandsIndicator({ lineColor: 'rgba(124,133,144,0.5)', fillColor: 'rgba(124,133,144,0.10)' });
   }
 
+  // --- VWAP (adapted from TradingView's built-in VWAP script: cumulative
+  //     (typical price * volume) / cumulative volume, reset at the start of
+  //     each anchor period, with a standard-deviation band around it — same
+  //     band-fill drawing code as BandsIndicator above is reused for the band.
+  //     NOTE: true VWAP is an intraday tool ("Session" anchor resets daily,
+  //     meaningless on daily bars since it would just equal that day's
+  //     typical price). Since this chart is daily bars, the anchor options
+  //     are Week/Month/Quarter/Year instead of TradingView's full list. ---
+  function vwapPeriodKey(dateStr, anchor) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    const y = d.getUTCFullYear();
+    if (anchor === 'Year') return `${y}`;
+    if (anchor === 'Quarter') return `${y}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+    if (anchor === 'Month') return `${y}-${d.getUTCMonth()}`;
+    // Week: ISO week number
+    const target = new Date(d.valueOf());
+    const dayNr = (d.getUTCDay() + 6) % 7;
+    target.setUTCDate(target.getUTCDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setUTCMonth(0, 1);
+    if (target.getUTCDay() !== 4) target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+    const week = 1 + Math.ceil((firstThursday - target) / (7 * 24 * 3600 * 1000));
+    return `${y}-W${week}`;
+  }
+
+  function computeVWAP(bars, anchor, mult) {
+    let cumPV = 0, cumV = 0, cumPV2 = 0, lastKey = null;
+    const vwapLine = [], band = [];
+    for (const b of bars) {
+      const key = vwapPeriodKey(fmtDate(b.time), anchor);
+      if (key !== lastKey) { cumPV = 0; cumV = 0; cumPV2 = 0; lastKey = key; }
+      const typicalPrice = (b.high + b.low + b.close) / 3;
+      const vol = b.qty || 0;
+      cumPV += typicalPrice * vol;
+      cumV += vol;
+      cumPV2 += typicalPrice * typicalPrice * vol;
+      if (cumV === 0) continue;
+      const vwap = cumPV / cumV;
+      const variance = Math.max(0, cumPV2 / cumV - vwap * vwap);
+      const stdev = Math.sqrt(variance);
+      vwapLine.push({ time: b.time, value: vwap });
+      band.push({ time: b.time, upper: vwap + stdev * mult, lower: vwap - stdev * mult });
+    }
+    return { vwapLine, band };
+  }
+
   // --- Highlight bar crosshair (reimplemented from scratch — same visual
   //     idea as highlight-bar-crosshair.ts: a soft full-height column under
   //     the hovered bar — not a line-by-line port of the original, which also
@@ -1114,13 +1168,19 @@
   // --- indicator instances (created once, attached/detached on toggle) ---
   const bollinger = new BandsIndicator({});
   const hlcBand = makeHLCBand();
+  const vwapSeries = chart.addSeries(LightweightCharts.LineSeries, {
+    color: '#2962FF', lineWidth: 2, priceLineVisible: false, lastValueVisible: false,
+    crosshairMarkerVisible: false, visible: false,
+  });
+  const vwapBand = new BandsIndicator({ lineColor: 'rgba(46,139,87,0.6)', fillColor: 'rgba(46,139,87,0.12)' });
+  let vwapAnchor = 'Month';
   const highlightBar = new HighlightBarCrosshair();
   const volumeProfile = new VolumeProfile({});
   let sessionHighlighting = null; // recreated per-symbol since highlighter reads bar list
 
   candleSeries.attachPrimitive(highlightBar); // always on by default
 
-  const state = { boll: false, hlc: false, week: false, profile: false };
+  const state = { boll: false, hlc: false, week: false, profile: false, vwap: false };
 
   function toggleBollinger(on) {
     state.boll = on;
@@ -1134,6 +1194,18 @@
     document.getElementById('lbl-hlc').classList.toggle('on', on);
     if (on) { candleSeries.attachPrimitive(hlcBand); recomputeHLCBand(); }
     else candleSeries.detachPrimitive(hlcBand);
+  }
+  function toggleVWAP(on) {
+    state.vwap = on;
+    document.getElementById('lbl-vwap').classList.toggle('on', on);
+    document.getElementById('vwapLegend').style.display = on ? 'flex' : 'none';
+    vwapSeries.applyOptions({ visible: on });
+    if (on) { candleSeries.attachPrimitive(vwapBand); recomputeVWAP(); }
+    else candleSeries.detachPrimitive(vwapBand);
+  }
+  function onVwapAnchorChange(value) {
+    vwapAnchor = value;
+    if (state.vwap) recomputeVWAP();
   }
   function toggleHighlightBar(on) {
     document.getElementById('lbl-crosshair').classList.toggle('on', on);
@@ -1154,6 +1226,8 @@
   }
   window.toggleBollinger = toggleBollinger;
   window.toggleHLCBand = toggleHLCBand;
+  window.toggleVWAP = toggleVWAP;
+  window.onVwapAnchorChange = onVwapAnchorChange;
   window.toggleHighlightBar = toggleHighlightBar;
   window.toggleWeekShading = toggleWeekShading;
   window.toggleVolumeProfile = toggleVolumeProfile;
@@ -1193,6 +1267,11 @@
   }
   function recomputeHLCBand() {
     hlcBand.setData(currentBarsArr.map(b => ({ time: b.time, upper: b.high, lower: b.low })));
+  }
+  function recomputeVWAP() {
+    const { vwapLine, band } = computeVWAP(currentBarsArr, vwapAnchor, 1);
+    vwapSeries.setData(vwapLine);
+    vwapBand.setData(band);
   }
 
   chart.subscribeCrosshairMove(param => {
@@ -1406,6 +1485,7 @@
       if (state.hlc) recomputeHLCBand();
       if (state.week) attachSessionHighlighting();
       if (state.profile) volumeProfile.setData(currentBarsArr);
+      if (state.vwap) recomputeVWAP();
 
       chart.timeScale().fitContent();
       volumeChart.timeScale().fitContent();

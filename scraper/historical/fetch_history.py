@@ -1,6 +1,16 @@
 """
 Historical price scraper using Playwright.
 Selectors confirmed against real Merolagani Price History tab HTML.
+
+FIXED: two changes to handle slow/heavy pages (symbols with thousands of
+records, e.g. ADBL's 37 pages) without losing progress:
+  1. Longer timeout (25s, up from 10s) and more retries (5, up from 3) per
+     page -- a single 10s timeout was too aggressive for a page this size
+     under real network conditions.
+  2. fetch_symbol_history now accepts start_page, and returns how far it
+     actually got (last_page_reached) alongside the rows -- so a caller can
+     resume from that page next time instead of re-fetching from page 1
+     and potentially hitting the same wall forever.
 """
 
 import re
@@ -13,6 +23,10 @@ HISTORY_TAB_LINK_ID = "ctl00_ContentPlaceHolder1_CompanyDetail1_lnkHistoryTab"
 RECORDS_LABEL_ID = "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControlTransactionHistory1_litRecords"
 HIDDEN_PAGE_FIELD_ID = "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControlTransactionHistory1_hdnCurrentPage"
 HIDDEN_BUTTON_ID = "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControlTransactionHistory1_btnPaging"
+
+PAGE_TIMEOUT_MS = 25000  # was 10000 -- too short for heavy pages under load
+PAGE_RETRIES = 5         # was 3
+RETRY_BACKOFF_SECONDS = 3  # was a flat 2s; small ramp helps transient slowness
 
 
 def _to_number(value: str):
@@ -49,12 +63,12 @@ def _parse_history_table(html: str) -> list[dict]:
     return rows
 
 
-def _go_to_page(page, page_num: int, retries: int = 3) -> bool:
+def _go_to_page(page, page_num: int, retries: int = PAGE_RETRIES) -> bool:
     """Attempts to navigate to a given page number. Returns True on success."""
     for attempt in range(1, retries + 1):
         try:
-            # make sure the hidden field actually exists before touching it
-            page.wait_for_selector(f"#{HIDDEN_PAGE_FIELD_ID}", state="attached", timeout=10000)
+            page.wait_for_selector(f"#{HIDDEN_PAGE_FIELD_ID}", state="attached",
+                                    timeout=PAGE_TIMEOUT_MS)
             page.evaluate(
                 f"changePageIndex('{page_num}', '{HIDDEN_PAGE_FIELD_ID}', '{HIDDEN_BUTTON_ID}')"
             )
@@ -62,13 +76,23 @@ def _go_to_page(page, page_num: int, retries: int = 3) -> bool:
             return True
         except Exception as e:
             print(f"  page {page_num} attempt {attempt}/{retries} failed: {e}")
-            time.sleep(2)
+            time.sleep(RETRY_BACKOFF_SECONDS * attempt)  # small ramp: 3s, 6s, 9s...
     return False
 
 
-def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | None = None) -> list[dict]:
+def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | None = None,
+                          start_page: int = 1) -> tuple[list[dict], int, int]:
+    """
+    Returns (rows, last_page_reached, total_pages).
+
+    start_page: resume from this page instead of page 1 (page 1 is still
+    loaded first regardless, to read total_pages and grab its rows, since
+    that's unavoidable with how the site's postback pagination works --
+    but pages before start_page are then skipped rather than re-fetched).
+    """
     url = f"https://merolagani.com/CompanyDetail.aspx?symbol={symbol}"
     all_rows = []
+    last_page_reached = 0
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
@@ -85,21 +109,40 @@ def fetch_symbol_history(symbol: str, headless: bool = True, max_pages: int | No
         if max_pages:
             total_pages = min(total_pages, max_pages)
 
-        print(f"{symbol}: {records_text.strip()} -> fetching {total_pages} page(s)")
+        print(f"{symbol}: {records_text.strip()} -> fetching {total_pages} page(s) "
+              f"(starting from page {start_page})")
 
-        # page 1 is already loaded
-        html = page.content()
-        all_rows.extend(_parse_history_table(html))
+        # page 1 is already loaded regardless of where we're resuming from
+        if start_page <= 1:
+            html = page.content()
+            all_rows.extend(_parse_history_table(html))
+        last_page_reached = 1
 
+        # FIXED: resuming used to jump straight to start_page via
+        # changePageIndex(start_page, ...) without ever requesting the pages
+        # in between. That's not how any successful run actually worked --
+        # every symbol that completed got there by walking 2, 3, 4... in
+        # order, and the site's own postback/pager state seems to depend on
+        # that sequence. Jumping straight to e.g. page 24 silently breaks it
+        # (matches exactly what we saw: SIFC always failing one page past
+        # wherever it resumed from). So we still walk every page in order --
+        # we just don't bother re-parsing/keeping rows for pages we already
+        # have (< start_page), which is cheap; only pages >= start_page are
+        # actually kept.
         for page_num in range(2, total_pages + 1):
             success = _go_to_page(page, page_num)
             if not success:
-                print(f"  giving up on page {page_num} for {symbol} — keeping {len(all_rows)} rows collected so far")
-                break  # stop here, but keep whatever we already got
+                print(f"  giving up on page {page_num} for {symbol} -- "
+                      f"keeping {len(all_rows)} new row(s) collected this run "
+                      f"(reached page {last_page_reached} of {total_pages})")
+                break
 
+            last_page_reached = page_num
+            if page_num < start_page:
+                continue  # already have this page's rows from a prior run
             html = page.content()
             all_rows.extend(_parse_history_table(html))
 
         browser.close()
 
-    return all_rows
+    return all_rows, last_page_reached, total_pages

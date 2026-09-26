@@ -38,7 +38,15 @@ DATASETS = {
     ),
     "floorsheet": dict(
         table="broker_daily_summary",
-        count_sql="select count(*) from broker_daily_summary where trade_date = %s",
+        # FIXED: broker_daily_summary has one row per (symbol, broker) pair for
+        # the day -- NOT one row per trade. The archive manifest stores the raw
+        # TRADE count (e.g. 67,201), so comparing it against count(*) here (e.g.
+        # 13,165 symbol-broker rows) was comparing two different things and
+        # would mismatch on every single day, forever, blocking all cleanup.
+        # Each trade increments exactly one row's buy_trades by 1, so
+        # sum(buy_trades) for the date IS the true total trade count -- the
+        # correct like-for-like comparison against the archived trade count.
+        count_sql="select coalesce(sum(buy_trades), 0) from broker_daily_summary where trade_date = %s",
         delete_sql="delete from broker_daily_summary where trade_date = %s",
     ),
 }
