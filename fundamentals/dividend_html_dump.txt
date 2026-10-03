@@ -1,0 +1,298 @@
+
+================================================================================
+MATCH at character 47799:
+================================================================================
+        </tr>
+                    </tbody>
+                    <tbody class="panel panel-default" style="border: none;">
+                        <tr>
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#dividend-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Dividend
+                                </a>
+                            </th>
+                            <td class="">
+                                9.75
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="dividend-panel" class="panel-collapse 
+================================================================================
+MATCH at character 47838:
+================================================================================
+ody>
+                    <tbody class="panel panel-default" style="border: none;">
+                        <tr>
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#dividend-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Dividend
+                                </a>
+                            </th>
+                            <td class="">
+                                9.75
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="dividend-panel" class="panel-collapse collapse" aria-expanded="true">
+      
+================================================================================
+MATCH at character 47889:
+================================================================================
+-default" style="border: none;">
+                        <tr>
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#dividend-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Dividend
+                                </a>
+                            </th>
+                            <td class="">
+                                9.75
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="dividend-panel" class="panel-collapse collapse" aria-expanded="true">
+                            <td colspan="2">
+           
+================================================================================
+MATCH at character 48269:
+================================================================================
+>
+                            <td class="">
+                                9.75
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="dividend-panel" class="panel-collapse collapse" aria-expanded="true">
+                            <td colspan="2">
+                                <table class="table table-striped table-hover table-zeromargin" style="border: solid 1px #ccc; margin-bottom: 0px">
+
+                                    <tbody>
+                                        
+                                                <tr>
+                                                    <th class="td-icon">
+                         
+================================================================================
+MATCH at character 57046:
+================================================================================
+body>
+                    <tbody class="panel panel-default" style="border: none;">
+                        <tr>
+
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#bonus-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Bonus
+                                </a>
+                            </th>
+                            <td class="">
+                                3.25
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="bonus-panel" class="panel-collapse collapse" aria-expanded="true">
+            
+================================================================================
+MATCH at character 58992:
+================================================================================
+/tbody>
+                    <tbody class="panel panel-default" style="border: none;">
+                        <tr>
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#right-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">Right Share
+                                </a>
+                            </th>
+                            <td class="">
+                                
+                                <span class="text-primary">
+                                    </span>
+                            </td>
+                        </tr>
+                        <tr id="right-panel" class="panel-collapse collapse" aria-expanded="true">
+                        
+================================================================================
+MATCH at character 69041:
+================================================================================
+enderTab&#39;,&#39;&#39;)">Tender & Auction</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnTenderTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnTenderTab" class="hidden" />
+                    </li>
+                    <li id="navDividend">
+                        <a onclick="CompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="
+================================================================================
+MATCH at character 69172:
+================================================================================
+nyDetail1$btnTenderTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnTenderTab" class="hidden" />
+                    </li>
+                    <li id="navDividend">
+                        <a onclick="CompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <l
+================================================================================
+MATCH at character 69243:
+================================================================================
+etail1_btnTenderTab" class="hidden" />
+                    </li>
+                    <li id="navDividend">
+                        <a onclick="CompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDe
+================================================================================
+MATCH at character 69266:
+================================================================================
+ass="hidden" />
+                    </li>
+                    <li id="navDividend">
+                        <a onclick="CompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this)
+================================================================================
+MATCH at character 69301:
+================================================================================
+  </li>
+                    <li id="navDividend">
+                        <a onclick="CompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this);" id="ctl00_ContentPlaceHolder1_Co
+================================================================================
+MATCH at character 69390:
+================================================================================
+ompanyDetail.setActiveTab(this);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this);" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkMajorTab" href="#divMajor" data-toggle="tab" title="Major Shareholders" h
+================================================================================
+MATCH at character 69420:
+================================================================================
+);document.getElementById(ClientID_CompanyDetail.btnDividendTab).click();" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this);" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkMajorTab" href="#divMajor" data-toggle="tab" title="Major Shareholders" href="javascript:__doPostBack(&
+================================================================================
+MATCH at character 69529:
+================================================================================
+anyDetail1_lnkDividendTab" href="#divDividend" data-toggle="tab" title="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this);" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkMajorTab" href="#divMajor" data-toggle="tab" title="Major Shareholders" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkMajorTab&#39;,&#39;&#39;)">Major Shareholders</a>
+          
+================================================================================
+MATCH at character 69599:
+================================================================================
+="Dividend" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkDividendTab&#39;,&#39;&#39;)">Dividend</a>
+                        <input type="submit" name="ctl00$ContentPlaceHolder1$CompanyDetail1$btnDividendTab" value="" id="ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab" class="hidden" />
+                    </li>
+                    <li style="display: none">
+                        <a onclick="CompanyDetail.setActiveTab(this);" id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkMajorTab" href="#divMajor" data-toggle="tab" title="Major Shareholders" href="javascript:__doPostBack(&#39;ctl00$ContentPlaceHolder1$CompanyDetail1$lnkMajorTab&#39;,&#39;&#39;)">Major Shareholders</a>
+                    </li>
+                </ul>
+                <div class="ta
+================================================================================
+MATCH at character 114826:
+================================================================================
+ <table class="table table-bordered table-striped table-hover">
+                                    
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade in" id="divDividend" >
+                        
+                        <div id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDividendData">
+                            
+
+<script type="text/javascript">
+
+    var PagerControl5_ClientID = {
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl5_hdnCurrentPage",
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl5_btnPaging"
+    }
+
+</script>
+
+<input type="hidden" name="ctl00$ContentPlaceHolder1$CompanyD
+================================================================================
+MATCH at character 114942:
+================================================================================
+                   </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade in" id="divDividend" >
+                        
+                        <div id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDividendData">
+                            
+
+<script type="text/javascript">
+
+    var PagerControl5_ClientID = {
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl5_hdnCurrentPage",
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl5_btnPaging"
+    }
+
+</script>
+
+<input type="hidden" name="ctl00$ContentPlaceHolder1$CompanyDetail1$PagerControl5$hdnPCID" id="ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl5_hdnPCID" value="PC5" />
+<d
+================================================================================
+MATCH at character 124631:
+================================================================================
+laceHolder1_CompanyDetail1_btnFloorsheetTab",
+        btnAboutTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnAboutTab",
+        btnQuaterlyTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnQuaterlyTab",
+        btnTenderTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnTenderTab",
+        btnDividendTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab"
+    };
+
+    var txtCmpName = $("#ctl00_ContentPlaceHolder1_CompanyDetail1_companyName").text().split('(');
+    var txtSymbol = txtCmpName[1].split(')');
+    webengage.track("Viewed_CompanyDetail (Company Search)",
+    {
+        "Name": txtCmpName[0],
+        "StockSymbol": txtSymbol[0],
+    });
+</script>
+
+    <input type="hidden" value="1" id="isAdjusted"/>
+
+        </div>
+
+        <div class="footer">
+            <div c
+================================================================================
+MATCH at character 124689:
+================================================================================
+AboutTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnAboutTab",
+        btnQuaterlyTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnQuaterlyTab",
+        btnTenderTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnTenderTab",
+        btnDividendTab: "ctl00_ContentPlaceHolder1_CompanyDetail1_btnDividendTab"
+    };
+
+    var txtCmpName = $("#ctl00_ContentPlaceHolder1_CompanyDetail1_companyName").text().split('(');
+    var txtSymbol = txtCmpName[1].split(')');
+    webengage.track("Viewed_CompanyDetail (Company Search)",
+    {
+        "Name": txtCmpName[0],
+        "StockSymbol": txtSymbol[0],
+    });
+</script>
+
+    <input type="hidden" value="1" id="isAdjusted"/>
+
+        </div>
+
+        <div class="footer">
+            <div class="container">
+                <div class="row">
+      

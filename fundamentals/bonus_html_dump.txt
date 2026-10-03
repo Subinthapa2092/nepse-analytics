@@ -1,0 +1,88 @@
+
+================================================================================
+MATCH at character 57010:
+================================================================================
+      </tr>
+                    </tbody>
+                    <tbody class="panel panel-default" style="border: none;">
+                        <tr>
+
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#bonus-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Bonus
+                                </a>
+                            </th>
+                            <td class="">
+                                3.25
+                                <span class="text-primary
+================================================================================
+MATCH at character 57097:
+================================================================================
+l-default" style="border: none;">
+                        <tr>
+
+                            <th style="width: 200px;">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#bonus-panel" title="Show All - Cash Dividend" class="collapsed" aria-expanded="true">% Bonus
+                                </a>
+                            </th>
+                            <td class="">
+                                3.25
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                          
+================================================================================
+MATCH at character 57474:
+================================================================================
+>
+                            <td class="">
+                                3.25
+                                <span class="text-primary">
+                                    (FY:081-082)</span>
+                            </td>
+                        </tr>
+                        <tr id="bonus-panel" class="panel-collapse collapse" aria-expanded="true">
+                            <td colspan="2">
+                                <table class="table table-striped table-hover table-zeromargin" style="border: solid 1px #ccc; margin-bottom: 0px">
+
+                                    <tbo
+================================================================================
+MATCH at character 117681:
+================================================================================
+tyle="display: none;" />
+        <span id="ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl6_litRecords" class="hidden-xs"></span>
+    </div>
+    <div style="float: right;">
+        
+    </div>
+</div>
+                    </div>
+
+                    <div class="tab-pane fade in" id="divBonus" >
+                        
+                        <div id="ctl00_ContentPlaceHolder1_CompanyDetail1_divBonusData">
+                            
+
+<script type="text/javascript">
+
+    var PagerControl7_ClientID = {
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerContr
+================================================================================
+MATCH at character 117794:
+================================================================================
+ass="hidden-xs"></span>
+    </div>
+    <div style="float: right;">
+        
+    </div>
+</div>
+                    </div>
+
+                    <div class="tab-pane fade in" id="divBonus" >
+                        
+                        <div id="ctl00_ContentPlaceHolder1_CompanyDetail1_divBonusData">
+                            
+
+<script type="text/javascript">
+
+    var PagerControl7_ClientID = {
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl7_hdnCurrentPage",
+        hdnCurrentPage: "ctl00_ContentPlaceHolder1_CompanyDetail1_PagerControl7_btnPaging"
