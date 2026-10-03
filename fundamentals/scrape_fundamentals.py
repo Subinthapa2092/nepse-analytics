@@ -123,7 +123,22 @@ def _label_value(soup, label_text):
                 if parent_nxt and parent_nxt.get_text(strip=True):
                     return parent_nxt.get_text(strip=True)
     return None
-
+def _inline_snapshot_near(heading_el):
+    """Fallback for labels like Bonus that show only a single inline snapshot
+    value in the SAME table row as their own link/heading, rather than a real
+    multi-row history table (confirmed on ADBL: the real bonus history table
+    is just an empty header shell with no data rows -- the only bonus info on
+    the page is "3.25    (FY:081-082)" sitting in the same row as the
+    '% Bonus' link)."""
+    row = heading_el.find_parent("tr")
+    if row is None:
+        return []
+    text = row.get_text(" ", strip=True)
+    m = re.search(r"(-?\d+\.?\d*)\s*\(\s*FY[:\s]*([\d]{2,3}[-/][\d]{2,3})\s*\)", text)
+    if not m:
+        return []
+    value, fiscal_year = m.group(1), m.group(2)
+    return [(fiscal_year, value)]
 
 def _history_rows_near(soup, heading_text):
     """Finds the specific panel-link element matching heading_text, then the
@@ -168,7 +183,7 @@ def _history_rows_near(soup, heading_text):
 
     table = heading_el.find_next("table")
     if table is None:
-        return []
+        return _inline_snapshot_near(heading_el)
 
     rows = []
     for tr in table.find_all("tr"):
@@ -182,6 +197,8 @@ def _history_rows_near(soup, heading_text):
         if value_cell is None:
             continue
         rows.append((fy_cell, value_cell))
+    if not rows:
+        return _inline_snapshot_near(heading_el)
     return rows
 
 def scrape_symbol(symbol):

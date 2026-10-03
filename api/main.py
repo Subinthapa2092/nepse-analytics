@@ -59,10 +59,16 @@ def get_price(symbol: str):
 
     return dict(zip(COLUMNS, row))
 
-
 @app.get("/prices/{symbol}/history")
-def get_price_history(symbol: str):
-    """Full OHLC + volume history for one symbol, formatted for lightweight-charts."""
+def get_price_history(symbol: str, adjusted: bool = True):
+    """Full OHLC + volume history for one symbol, formatted for lightweight-charts.
+
+    By default, prices are back-adjusted for bonus/right-share dilution (the
+    same idea as Yahoo Finance's "adjusted close") using the adjustment_factors
+    table -- so a bonus issue doesn't show up as a fake price crash on the
+    chart. Pass ?adjusted=false to get the raw, as-traded prices instead.
+    """
+    symbol = symbol.upper()
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -70,25 +76,53 @@ def get_price_history(symbol: str):
         from daily_prices
         where symbol = %s
         order by fetched_at asc
-    """, (symbol.upper(),))
+    """, (symbol,))
     rows = cur.fetchall()
+
+    events = []
+    if adjusted:
+        cur.execute("""
+            select ex_date, event_factor, cum_factor
+            from adjustment_factors
+            where symbol = %s
+            order by ex_date asc
+        """, (symbol,))
+        events = cur.fetchall()  # ascending by ex_date
+
     cur.close()
     conn.close()
 
     if not rows:
         raise HTTPException(status_code=404, detail=f"No history found for '{symbol}'")
 
-    return [
-        {
+    def factor_for(d):
+        """Most recent event with ex_date <= d; if d is before every event,
+        use the full product (that event's cum_factor * its own event_factor)."""
+        if not events:
+            return 1.0
+        applicable = None
+        for ex_date, event_factor, cum_factor in events:
+            if ex_date <= d:
+                applicable = (ex_date, event_factor, cum_factor)
+            else:
+                break
+        if applicable is None:
+            _, event_factor, cum_factor = events[0]
+            return cum_factor * event_factor
+        return applicable[2]
+
+    result = []
+    for r in rows:
+        f = factor_for(r[0])
+        result.append({
             "time": r[0].strftime("%Y-%m-%d"),
-            "open": float(r[1]),
-            "high": float(r[2]),
-            "low": float(r[3]),
-            "close": float(r[4]),
+            "open": float(r[1]) * f,
+            "high": float(r[2]) * f,
+            "low": float(r[3]) * f,
+            "close": float(r[4]) * f,
             "qty": int(r[5]) if r[5] is not None else 0,
-        }
-        for r in rows
-    ]
+        })
+    return result
 
 
 @app.get("/screener/vcp")
