@@ -1076,11 +1076,6 @@
   let currentBars = new Map();
   let currentBarsArr = [];
   let currentPriceLine = null;
-  let adjustmentMarkers = [];
-  function clearAdjustmentMarkers() {
-    adjustmentMarkers.forEach(m => candleSeries.detachPrimitive(m));
-    adjustmentMarkers = [];
-  }
 
   function fmtDate(time) {
     if (typeof time === 'string') return time;
@@ -1473,18 +1468,6 @@
       const data = await res.json();
 
       candleSeries.setData(data);
-      clearAdjustmentMarkers();
-      try {
-        const evRes = await fetch(`${API_BASE}/prices/${symbol}/adjustments`);
-        if (evRes.ok) {
-          const events = await evRes.json();
-          events.forEach(ev => {
-            const vline = new VerticalLine(ev.date, ev.label, { color: '#F0B90B', width: 1 });
-            candleSeries.attachPrimitive(vline);
-            adjustmentMarkers.push(vline);
-          });
-        }
-      } catch (e) { /* non-fatal: markers are a nice-to-have */ }
       watermark.applyOptions({ lines: [{ text: symbol, color: 'rgba(255,255,255,0.06)', fontSize: 72, fontStyle: 'bold' }] });
 
       currentBars = new Map(data.map(d => [fmtDate(d.time), d]));

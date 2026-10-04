@@ -125,39 +125,6 @@ def get_price_history(symbol: str, adjusted: bool = True):
     return result
 
 
-@app.get("/prices/{symbol}/adjustments")
-def get_adjustments(symbol: str):
-    """List of bonus/right-share ex-dates for one symbol, for chart markers."""
-    symbol = symbol.upper()
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        select ex_date, event_type, event_factor
-        from adjustment_factors
-        where symbol = %s
-        order by ex_date asc
-    """, (symbol,))
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    result = []
-    for ex_date, event_type, event_factor in rows:
-        event_factor = float(event_factor)
-        if event_type == "bonus" and event_factor > 0:
-            pct = round((100.0 / event_factor) - 100.0, 1)
-            label = f"Bonus {pct}%"
-        else:
-            label = "Right Share"
-        result.append({
-            "date": ex_date.strftime("%Y-%m-%d"),
-            "event_type": event_type,
-            "factor": event_factor,
-            "label": label,
-        })
-    return result
-
-
 @app.get("/screener/vcp")
 def screener_vcp():
     """Returns the most recently computed VCP screener results (cached, not live)."""
