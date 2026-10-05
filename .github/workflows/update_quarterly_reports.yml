@@ -2,8 +2,6 @@ name: Update Quarterly Reports
 
 on:
   schedule:
-    # 09:45 UTC Sunday = 3:30 PM Nepal time, Sunday -- weekly, since filings
-    # trickle in across each quarter rather than all on one day
     - cron: '45 9 * * 0'
   workflow_dispatch:
 
