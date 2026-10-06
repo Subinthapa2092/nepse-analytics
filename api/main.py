@@ -173,3 +173,62 @@ def screener_vcp():
     conn.close()
     cols = ["symbol", "prior_avg_range_pct", "recent_avg_range_pct", "contraction_ratio"]
     return [dict(zip(cols, row)) for row in rows]
+
+
+@app.get("/fundamentals/{symbol}")
+def get_fundamentals(symbol: str):
+    """Quarterly report history + latest declared dividend/bonus/right-share
+    for one symbol. Note: this is corporate-action declaration data, not
+    EPS/Book Value/ROE/ROA -- that data lives only as an image on merolagani's
+    announcement pages and can't be scraped as text."""
+    symbol = symbol.upper()
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        select fiscal_year, date_text, announcement_id, description
+        from quarterly_reports
+        where symbol = %s
+        order by announcement_id::bigint desc
+    """, (symbol,))
+    quarterly_rows = cur.fetchall()
+
+    cur.execute("""
+        select bookclose_date, cash_dividend_pct, bonus_share_pct,
+               right_share_ratio, announcement_date, fiscal_year, tags
+        from quarterly_detail
+        where symbol = %s
+    """, (symbol,))
+    detail_row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    quarterly_reports = [
+        {
+            "fiscal_year": fy,
+            "date_text": dt,
+            "announcement_id": aid,
+            "description": desc,
+        }
+        for fy, dt, aid, desc in quarterly_rows
+    ]
+
+    latest = None
+    if detail_row:
+        bookclose_date, cash_dividend_pct, bonus_share_pct, right_share_ratio, announcement_date, fiscal_year, tags = detail_row
+        latest = {
+            "fiscal_year": fiscal_year,
+            "bookclose_date": bookclose_date,
+            "cash_dividend_pct": cash_dividend_pct,
+            "bonus_share_pct": bonus_share_pct,
+            "right_share_ratio": right_share_ratio,
+            "announcement_date": announcement_date,
+            "tags": tags,
+        }
+
+    return {
+        "symbol": symbol,
+        "quarterly_reports": quarterly_reports,
+        "latest_declaration": latest,
+    }
