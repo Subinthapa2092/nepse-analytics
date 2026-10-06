@@ -177,13 +177,27 @@ def screener_vcp():
 
 @app.get("/fundamentals/{symbol}")
 def get_fundamentals(symbol: str):
-    """Quarterly report history + latest declared dividend/bonus/right-share
-    for one symbol. Note: this is corporate-action declaration data, not
-    EPS/Book Value/ROE/ROA -- that data lives only as an image on merolagani's
-    announcement pages and can't be scraped as text."""
+    """EPS, P/E, Book Value, PBV + full dividend/bonus/right-share history
+    (scraped from merolagani's accordion summary table), plus the raw
+    quarterly-report filing list for reference."""
     symbol = symbol.upper()
     conn = get_connection()
     cur = conn.cursor()
+
+    cur.execute("""
+        select eps, eps_fy, pe_ratio, book_value, book_value_fy, pbv, scraped_at
+        from company_fundamentals
+        where symbol = %s
+    """, (symbol,))
+    fund_row = cur.fetchone()
+
+    cur.execute("""
+        select event_type, fiscal_year, value_text
+        from fundamentals_history
+        where symbol = %s
+        order by fiscal_year
+    """, (symbol,))
+    history_rows = cur.fetchall()
 
     cur.execute("""
         select fiscal_year, date_text, announcement_id, description
@@ -193,16 +207,31 @@ def get_fundamentals(symbol: str):
     """, (symbol,))
     quarterly_rows = cur.fetchall()
 
-    cur.execute("""
-        select bookclose_date, cash_dividend_pct, bonus_share_pct,
-               right_share_ratio, announcement_date, fiscal_year, tags
-        from quarterly_detail
-        where symbol = %s
-    """, (symbol,))
-    detail_row = cur.fetchone()
-
     cur.close()
     conn.close()
+
+    fundamentals = None
+    if fund_row:
+        eps, eps_fy, pe_ratio, book_value, book_value_fy, pbv, scraped_at = fund_row
+        fundamentals = {
+            "eps": eps,
+            "eps_fy": eps_fy,
+            "pe_ratio": pe_ratio,
+            "book_value": book_value,
+            "book_value_fy": book_value_fy,
+            "pbv": pbv,
+            "scraped_at": scraped_at,
+        }
+
+    dividend_history, bonus_history, right_share_history = [], [], []
+    for event_type, fiscal_year, value_text in history_rows:
+        entry = {"fiscal_year": fiscal_year, "value": value_text}
+        if event_type == "dividend":
+            dividend_history.append(entry)
+        elif event_type == "bonus":
+            bonus_history.append(entry)
+        elif event_type == "right":
+            right_share_history.append(entry)
 
     quarterly_reports = [
         {
@@ -214,21 +243,11 @@ def get_fundamentals(symbol: str):
         for fy, dt, aid, desc in quarterly_rows
     ]
 
-    latest = None
-    if detail_row:
-        bookclose_date, cash_dividend_pct, bonus_share_pct, right_share_ratio, announcement_date, fiscal_year, tags = detail_row
-        latest = {
-            "fiscal_year": fiscal_year,
-            "bookclose_date": bookclose_date,
-            "cash_dividend_pct": cash_dividend_pct,
-            "bonus_share_pct": bonus_share_pct,
-            "right_share_ratio": right_share_ratio,
-            "announcement_date": announcement_date,
-            "tags": tags,
-        }
-
     return {
         "symbol": symbol,
+        "fundamentals": fundamentals,
+        "dividend_history": dividend_history,
+        "bonus_history": bonus_history,
+        "right_share_history": right_share_history,
         "quarterly_reports": quarterly_reports,
-        "latest_declaration": latest,
     }
