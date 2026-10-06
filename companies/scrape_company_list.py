@@ -31,7 +31,7 @@ URL = "https://merolagani.com/CompanyList.aspx"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, "nepse_companies.sqlite"))
+DB_PATH = os.path.join(SCRIPT_DIR, "nepse_companies.sqlite")
 
 # Sectors to skip -- not ordinary equity shares, so EPS/PE/bonus history
 # doesn't meaningfully apply (bonds pay coupons not dividends; promoter
