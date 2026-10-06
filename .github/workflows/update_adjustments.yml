@@ -32,4 +32,5 @@ jobs:
       - name: Sync adjustment factors to nepse_floorsheet
         run: python adjusted_prices/push_adjustment_factors_to_floorsheet.py
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FLOORSHEET_DATABASE_URL: ${{ secrets.FLOORSHEET_DATABASE_URL }}
