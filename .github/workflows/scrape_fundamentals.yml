@@ -1,0 +1,24 @@
+name: Weekly Fundamentals Scrape
+
+on:
+  schedule:
+    # 03:15 UTC Sunday = 9:00 AM Nepal time
+    - cron: '15 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  scrape-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Scrape fundamentals (EPS/PE/BookValue/PBV + dividend history)
+        run: python quarterly/scrape_fundamentals.py
+      - name: Push fundamentals to Supabase
+        run: python quarterly/push_fundamentals.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
